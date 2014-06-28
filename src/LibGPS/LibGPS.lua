@@ -29,7 +29,7 @@ function lib:GetCurrentMapMeasurements()
 				scaleY = 1,
 				offsetX = 0,
 				offsetY = 0,
-				zoneIndex = GetCurrentMapIndex()
+				mapIndex = GetCurrentMapIndex()
 			}
 		else
 			MuteUI()
@@ -55,7 +55,7 @@ function lib:GetCurrentMapMeasurements()
 					scaleY = scaleY,
 					offsetX = offsetX,
 					offsetY = offsetY,
-					zoneIndex = GetCurrentMapIndex()
+					mapIndex = GetCurrentMapIndex()
 				}
 			end
 
@@ -77,13 +77,13 @@ function lib:LocalToGlobal(x, y)
 	if(measurements) then
 		x = x * measurements.scaleX + measurements.offsetX
 		y = y * measurements.scaleY + measurements.offsetY
-		return measurements.zoneIndex, x, y
+		return measurements.mapIndex, x, y
 	end
 end
 
-function lib:GlobalToLocal(zoneIndex, x, y)
+function lib:GlobalToLocal(mapIndex, x, y)
 	local measurements = lib:GetCurrentMapMeasurements()
-	if(measurements and zoneIndex == measurements.zoneIndex) then
+	if(measurements and mapIndex == measurements.mapIndex) then
 		x = (x - measurements.offsetX) / measurements.scaleX
 		y = (y - measurements.offsetY) / measurements.scaleY
 		return x, y
