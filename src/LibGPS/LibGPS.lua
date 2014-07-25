@@ -4,19 +4,70 @@ if not lib then
 	return	-- already loaded and no upgrade necessary
 end
 
+local DUMMY_PIN_TYPE = "LibGPSDummyPin"
+
 local mapMeasurements = {}
 local backupWpX, backupWpY = 0, 0
 local isMuted = false
+local mapPinManager = nil
 
-local function TempMuteUI()
-	if(isMuted) then return end
-	isMuted = true
-	local volume = GetSetting(Options_Audio_UISoundVolume.system, Options_Audio_UISoundVolume.settingId)
-	SetSetting(Options_Audio_UISoundVolume.system, Options_Audio_UISoundVolume.settingId, 0)
-	zo_callLater(function() -- cannot unmute synchronously or we will hear the UI sounds
-		SetSetting(Options_Audio_UISoundVolume.system, Options_Audio_UISoundVolume.settingId, volume)
-		isMuted = false
-	end, 100)
+local function CollectMapPinManager()
+	if(mapPinManager) then return end
+	ZO_WorldMap_AddCustomPin(DUMMY_PIN_TYPE, function(pinManager)
+		mapPinManager = pinManager
+		ZO_WorldMap_SetCustomPinEnabled(_G[DUMMY_PIN_TYPE], false)
+	end, nil, {level = 0, size = 0, texture = ""})
+	ZO_WorldMap_SetCustomPinEnabled(_G[DUMMY_PIN_TYPE], true)
+	ZO_WorldMap_RefreshCustomPinsOfType(_G[DUMMY_PIN_TYPE])
+end
+
+local function UpdateWaypointPin()
+	zo_callLater(function ()
+		if(mapPinManager) then
+			mapPinManager:RemovePins("pings", MAP_PIN_TYPE_PLAYER_WAYPOINT, "waypoint")
+
+			local x, y = GetMapPlayerWaypoint()
+			if(x ~= 0 and y ~= 0) then
+				mapPinManager:CreatePin(MAP_PIN_TYPE_PLAYER_WAYPOINT, "waypoint", x, y)
+			end
+		else
+			ZO_WorldMap_UpdateMap()
+		end
+	end, 20)
+end
+
+local mapPingSound = SOUNDS.MAP_PING
+local mapPingRemoveSound = SOUNDS.MAP_PING_REMOVE
+local mutes = 0 -- keep track how often the unmute event will fire
+
+local function MuteMapPing()
+	SOUNDS.MAP_PING = nil
+	SOUNDS.MAP_PING_REMOVE = nil
+	mutes = mutes + 1
+end
+
+local function HandleMapPingEvent()
+	if(mutes == 0) then
+		SOUNDS.MAP_PING = mapPingSound
+		SOUNDS.MAP_PING_REMOVE = mapPingRemoveSound
+	else
+		mutes = mutes - 1
+	end
+end
+
+local function SetWaypointSilently(x, y)
+	-- if a waypoint already exists, it will first be removed so we need to mute twice
+	local wpX, wpY = GetMapPlayerWaypoint()
+	if(wpX ~= 0 and wpY ~= 0) then
+		MuteMapPing()
+	end
+	MuteMapPing()
+	PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+end
+
+local function RemoveWaypointSilently()
+	MuteMapPing()
+	RemovePlayerWaypoint()
 end
 
 function lib:ClearMapMeasurements()
@@ -98,8 +149,6 @@ function lib:CalculateCurrentMapMeasurements()
 	local localX, localY = GetMapPlayerPosition("player")
 	if(localX == 0 and localY == 0) then return end -- cannot take measurements while player position is not initialized
 
-	TempMuteUI() -- temporarily mute the UI sounds so we can silently set waypoints
-
 	-- save waypoint location
 	local oldWaypointX, oldWaypointY = GetMapPlayerWaypoint()
 
@@ -109,7 +158,7 @@ function lib:CalculateCurrentMapMeasurements()
 	if(localY < 0.5) then wpY = 0.95 end
 
 	-- set measurement waypoint
-	PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, wpX, wpY)
+	SetWaypointSilently(wpX, wpY)
 
 	-- add local points to seen maps
 	local measurementPositions = {}
@@ -142,6 +191,9 @@ function lib:CalculateCurrentMapMeasurements()
 		local scaleY = (y2 - y1) / (m.wpY - m.pY)
 		local offsetX = x1 - m.pX * scaleX
 		local offsetY = y1 - m.pY * scaleY
+		if(math.abs(scaleX - scaleY) > 1e-4) then
+			d(string.format("LibGPS Warning: current map measurement might be wrong. Please report the following information to the author: %s, %d, %f, %f, %f, %f, %f, %f, %f, %f", m.mapId, mapIndex, m.pX, m.pY, m.wpX, m.wpY, x1, y1, x2, y2))
+		end
 
 		-- store measurements
 		mapMeasurements[m.mapId] = {
@@ -155,7 +207,7 @@ function lib:CalculateCurrentMapMeasurements()
 
 	-- reset or remove the waypoint
 	if(oldWaypointX == 0 and oldWaypointY == 0 and backupWpX == 0 and backupWpY == 0) then
-		RemovePlayerWaypoint()
+		RemoveWaypointSilently()
 	else
 		local m = mapMeasurements[mapId]
 		local waypointX, waypointY
@@ -170,7 +222,7 @@ function lib:CalculateCurrentMapMeasurements()
 
 		-- we currently cannot reset the waypoint when it is outside of the Tamriel map
 		if(waypointX < 0 or waypointX > 1 or waypointY < 0 or waypointY > 1) then
-			RemovePlayerWaypoint() -- remove waypoint so we don't end up in an infinite loop
+			RemoveWaypointSilently() -- remove waypoint so we don't end up in an infinite loop
 			zo_callLater(function()
 				SetMapToMapListIndex(23) -- set to coldharbour
 				local coldharbourId = GetMapTileTexture()
@@ -183,16 +235,15 @@ function lib:CalculateCurrentMapMeasurements()
 				if(waypointX < 0 or waypointX > 1 or waypointY < 0 or waypointY > 1) then
 					d("LibGPS Error: cannot reset waypoint because it was outside of the world map")
 				else
-					PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, waypointX, waypointY)
-					-- TODO: if RefreshMapPings ever gets exposed, call it directly
-					zo_callLater(ZO_WorldMap_UpdateMap, 20) -- try to update the map so the waypoint won't show up in the wrong location
+					SetWaypointSilently(waypointX, waypointY)
+					UpdateWaypointPin() -- update the waypoint pin so it won't show up in the wrong location
 				end
 
 				ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
 			end, 20)
 		else
-			PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, waypointX, waypointY)
-			zo_callLater(ZO_WorldMap_UpdateMap, 20) -- try to update the map so the waypoint won't show up in the wrong location
+			SetWaypointSilently(waypointX, waypointY)
+			UpdateWaypointPin() -- update the waypoint pin so it won't show up in the wrong location
 		end
 	end
 
@@ -238,6 +289,25 @@ function lib:ZoneToGlobal(mapIndex, x, y)
 	return x, y, mapIndex
 end
 
+function lib:PanToMapPosition(x, y)
+	-- if we don't have access to the mapPinManager we cannot do anything
+	if(not mapPinManager) then return end
+
+	-- create dummy pin
+	local pin = mapPinManager:CreatePin(_G[DUMMY_PIN_TYPE], "libgpsdummy", x, y)
+
+	-- replace GetPlayerPin to return our dummy pin
+	local getPlayerPin = mapPinManager.GetPlayerPin
+	mapPinManager.GetPlayerPin = function() return pin end
+
+	-- let the map pan to our dummy pin
+	ZO_WorldMap_PanToPlayer()
+
+	-- cleanup
+	mapPinManager.GetPlayerPin = getPlayerPin
+	mapPinManager:RemovePins(DUMMY_PIN_TYPE)
+end
+
 EVENT_MANAGER:RegisterForEvent("LibGPS_PlayerDeactivated", EVENT_PLAYER_DEACTIVATED , function()
 	local x, y = GetMapPlayerWaypoint()
 	if(x ~= 0 and y ~= 0) then
@@ -248,10 +318,12 @@ EVENT_MANAGER:RegisterForEvent("LibGPS_PlayerDeactivated", EVENT_PLAYER_DEACTIVA
 end)
 
 EVENT_MANAGER:RegisterForEvent("LibGPS_PlayerActivated", EVENT_PLAYER_ACTIVATED , function()
+	CollectMapPinManager()
 	local x, y = GetMapPlayerWaypoint()
 	if(x == 0 and y == 0 and backupWpX ~= 0 and backupWpY ~= 0) then
-		TempMuteUI()
 		x, y = lib:GlobalToLocal(backupWpX, backupWpY)
-		PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+		SetWaypointSilently(x, y)
 	end
 end)
+
+EVENT_MANAGER:RegisterForEvent("LibGPS_UnmuteMapPing", EVENT_MAP_PING, HandleMapPingEvent)
