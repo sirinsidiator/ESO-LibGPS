@@ -28,11 +28,12 @@ local function mockGlobals()
 		return {}
 	end
 	function GetEventManager()
-		return { 
+		return {
 			RegisterForEvent = function() end,
 			RegisterForUpdate = function() end,
 		}
 	end
+	function d(...) end
 	MAPTYPE_NONE = 0
 	MAPTYPE_SUBZONE = 1
 	MAPTYPE_ZONE = 2
@@ -47,10 +48,11 @@ local function mockGlobals()
 	SET_MAP_RESULT_CURRENT_MAP_UNCHANGED = 0
 	SET_MAP_RESULT_MAP_CHANGED = 1
 	SET_MAP_RESULT_FAILED = 2
-	
+
 	Options_Audio_UISoundVolume = {}
 	function GetSetting() return 0 end
 	function SetSetting() end
+	VERSION_NUMBER = 1
 end
 
 mockGlobals()
@@ -58,6 +60,7 @@ require('esoui.libraries.globals.globalvars')
 require('esoui.libraries.globals.globalapi')
 require('esoui.libraries.utility.baseobject')
 require('esoui.libraries.utility.zo_tableutils')
+require('esoui.libraries.utility.zo_hook')
 require('esoui.ingamelocalization.localizegeneratedstrings')
 importAddonFiles()
 

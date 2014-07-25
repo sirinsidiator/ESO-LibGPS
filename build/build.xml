@@ -14,6 +14,7 @@
 			<fileset dir="${srcdir}" />
 		</copy>
 		<replace file="${addondir}/${ant.project.name}.txt" token="VERSION_NUMBER" value="development" />
+		<replace file="${addondir}/${ant.project.name}/${ant.project.name}.lua" token="VERSION_NUMBER" value="999" />
 	</target>
 
 	<target name="createArchive">
@@ -25,6 +26,7 @@
 		</copy>
 
 		<replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="VERSION_NUMBER" value="${version}.${build.number}" />
+		<replace file="${tempdir}/${ant.project.name}/${ant.project.name}/${ant.project.name}.lua" token="VERSION_NUMBER" value="${version}.${build.number}" />
 
 		<zip destfile="${targetdir}/${ant.project.name}v${version}_${build.number}.zip">
 			<fileset dir="${tempdir}" />
