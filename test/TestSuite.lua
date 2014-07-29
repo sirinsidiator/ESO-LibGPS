@@ -34,6 +34,9 @@ local function mockGlobals()
 		}
 	end
 	function d(...) end
+	SOUNDS = {}
+	SCENE_MANAGER = { IsShowing = function() return true end }
+	LINK_HANDLER = { RegisterCallback = function() end }
 	MAPTYPE_NONE = 0
 	MAPTYPE_SUBZONE = 1
 	MAPTYPE_ZONE = 2

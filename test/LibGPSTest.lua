@@ -49,7 +49,7 @@ GetCurrentMapIndex = function() return currentMap.mapIndex end
 GetMapType = function() return currentMap.type end
 GetMapContentType = function() return currentMap.contentType end
 
-local gps = LibStub("LibGPS")
+local gps = LibStub("LibGPS2")
 function TestLibGPS:setUp()
 	gps:ClearMapMeasurements()
 	currentMap = maps.zoneA
@@ -224,4 +224,19 @@ function TestLibGPS:testCreateMeasurementsPlayerOnRightBottomMapBorder()
 	assertEqualsDelta(measurements.scaleY, 0.25, 1e-10)
 	assertEqualsDelta(measurements.offsetX, 0, 1e-10)
 	assertEqualsDelta(measurements.offsetY, 0, 1e-10)
+end
+
+function TestLibGPS:testErrorReport()
+--2:glenumbra/daggerfall_base:2:0.50189214944839:0.67225408554077:0.05:0.05:0.061461199074984:0.39308640360832:0.047657199203968:0.37373840808868:0.046129843629428:0.37218373806166:0.030547111490796:0.03109340054043
+	local pX, pY = 0.484044, 0.227339
+	local wpX, wpY = 0.95, 0.95
+	local x1, y1 = 0.06916, 0.369252
+	local x2, y2 = 0.075150, 0.401722
+	local scaleX = (x2 - x1) / (wpX - pX)
+	local scaleY = (y2 - y1) / (wpY - pY)
+	local offsetX = x1 - pX * scaleX
+	local offsetY = y1 - pY * scaleY
+	print(0.03109340054043 - 0.030547111490796)
+	print(scaleX)
+	print(scaleY)
 end
