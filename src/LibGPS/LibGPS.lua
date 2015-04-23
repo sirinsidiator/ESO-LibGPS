@@ -61,6 +61,8 @@ local function UnmuteMapPing()
                 UpdateWaypointPin()
                 needWaypointRestore = false
             end
+            --The WaypointIt handler, may called next, uses a muted sound as an indicator.
+            --Therefore restoring sound is delayed
             EVENT_MANAGER:RegisterForUpdate(LIB_IDENTIFIER_RESTORE, 100, Restore)
         end
     end
@@ -99,7 +101,7 @@ local function SetWaypointSilently(x, y)
 end
 
 local function GetMapInfoForReset()
-	local isPlayerLocation = (GetMapName() == GetPlayerLocationName())
+	local isPlayerLocation = (GetMapName() == GetPlayerLocationName()) or (GetMapContentType() == MAP_CONTENT_DUNGEON)
 	local isZoneMap = (GetMapType() == MAPTYPE_ZONE and GetMapContentType() ~= MAP_CONTENT_DUNGEON)
 	local isSubZoneMap = (GetMapType() == MAPTYPE_SUBZONE)
 	local mapFloor, mapFloorCount = GetMapFloorInfo()
