@@ -20,6 +20,7 @@ local mapPingSound = SOUNDS.MAP_PING
 local mapPingRemoveSound = SOUNDS.MAP_PING_REMOVE
 local mutes = 0
 local needWaypointRestore = false
+local orgSetMapToMapListIndex
 
 local function LogMessage(type, message, ...)
     d(zo_strjoin(" ", LIB_NAME, type, message, ...))
@@ -116,13 +117,13 @@ local function ResetToInitialMap(mapId, mapIndex, isPlayerLocation, isZoneMap, i
 		needUpdate = SetMapToPlayerLocation() == SET_MAP_RESULT_MAP_CHANGED
 	elseif(isZoneMap) then
     d("isZoneMap")
-		needUpdate = SetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
+		needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
 		if(mapId:find("eyevea")) then -- Eveyea is located on the Tamriel map, but not really a zone or sub zone
 			ProcessMapClick(0.06224, 0.61272)
 		end
 	elseif(isSubZoneMap) then
     d("isSubZoneMap")
-		needUpdate = SetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
+		needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
 
 		-- determine where on the zone map we have to click to get to the sub zone map
 		local x, y
@@ -148,10 +149,23 @@ local function ResetToInitialMap(mapId, mapIndex, isPlayerLocation, isZoneMap, i
 	if(mapFloorCount > 0) then -- some maps do have different floors (e.g. Elden Root)
 		needUpdate = SetMapFloor(mapFloor) == SET_MAP_RESULT_MAP_CHANGED or needUpdate
 	end
-    if needUpdate and not SCENE_MANAGER:IsShowing("worldMap") then
-    d("needUpdate")
-        CALLBACK_MANAGER:FireCallbacks("OnWorldMapChanged", false)
+    if needUpdate then d("needUpdate") end
+    return needUpdate
+end
+
+local function HookSetMapToMapListIndex()
+  orgSetMapToMapListIndex = SetMapToMapListIndex
+  local function NewSetMapToMapListIndex(mapIndex)
+    local result = orgSetMapToMapListIndex(mapIndex)
+    if result ~= SET_MAP_RESULT_MAP_FAILED then
+      if lib:CalculateCurrentMapMeasurements() == true then -- To change or not to change, that's the question
+        result = SET_MAP_RESULT_MAP_CHANGED
+      end
     end
+    -- All stuff is done before anyone triggers an OnWorldMapChanged due to this result
+    return result
+  end
+  SetMapToMapListIndex = NewSetMapToMapListIndex
 end
 
 -- Unregister handler from older libGPS
@@ -181,8 +195,8 @@ EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_INIT, EVENT_PLAYER_ACTIVATED, func
     EVENT_MANAGER:UnregisterForEvent("ZO_WorldMap", EVENT_MAP_PING)
 
     EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_UNMUTE, EVENT_MAP_PING, HandleMapPingEvent)
-    -- Try get a cache before user starts to look around
-    lib:CalculateCurrentMapMeasurements()
+
+    HookSetMapToMapListIndex()
 end)
 
 -- ---------------------- public functions ----------------------
@@ -230,7 +244,7 @@ function lib:CalculateCurrentMapMeasurements()
 	local mapIndex = GetCurrentMapIndex() or 1
 
 	-- switch to world map so we can calculate the global map scale and offset
-	SetMapToMapListIndex(1)
+	orgSetMapToMapListIndex(1)
 	if not (GetMapType() == MAPTYPE_WORLD) then LogMessage(LOG_NOTICE, "Could not switch to world map") return end -- failed to switch to the world map
 
 	-- get the two reference points on the world map
@@ -310,13 +324,13 @@ d("CalculateCurrentMapMeasurements")
         else
     		-- when the waypoint is outside of the Tamriel map we can try if it is in coldharbour
             local coldharbourIndex = 23
-			SetMapToMapListIndex(coldharbourIndex) -- set to coldharbour
+			orgSetMapToMapListIndex(coldharbourIndex) -- set to coldharbour
 			local coldharbourId = GetMapTileTexture()
             if not mapMeasurements[coldharbourId] then -- coldharbour measured?
                 mutes = mutes - 1 -- another SetWaypointSilently without event
                 -- measure only: no backup, no restore
                 assert(Measure(coldharbourId, GetMapPlayerPosition("player")) == coldharbourIndex, "coldharbour is not map index 23?!?")
-                SetMapToMapListIndex(coldharbourIndex) -- set to coldharbour
+                orgSetMapToMapListIndex(coldharbourIndex) -- set to coldharbour
             end
 			measurements = mapMeasurements[coldharbourId]
 
@@ -334,7 +348,7 @@ d("CalculateCurrentMapMeasurements")
     end
 
     -- Go to initial map including coldhabour
-	ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
+	return ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
 end
 
 --- Returns a table with the measurement values for the active map or nil if the measurements could not be calculated for some reason.
