@@ -14,10 +14,11 @@ local DUMMY_PIN_TYPE = LIB_NAME .. "DummyPin"
 local LIB_IDENTIFIER_INIT = LIB_NAME .. "_Init"
 local LIB_IDENTIFIER_UNMUTE = LIB_NAME .. "_UnmuteMapPing"
 local LIB_IDENTIFIER_RESTORE = LIB_NAME .. "_Restore"
-local LIB_EVENT_STATE_CHANGED = "OnLibGPS2MeasurementChanged"
+lib.LIB_EVENT_STATE_CHANGED = "OnLibGPS2MeasurementChanged"
 
 local LOG_WARNING = "Warning"
 local LOG_NOTICE = "Notice"
+local LOG_DEBUG = "Debug"
 
 local mapMeasurements = { }
 local mapPinManager = nil
@@ -25,10 +26,12 @@ local mapPingSound = SOUNDS.MAP_PING
 local mapPingRemoveSound = SOUNDS.MAP_PING_REMOVE
 local mutes = 0
 local needWaypointRestore = false
-local orgSetMapToMapListIndex
+local orgSetMapToMapListIndex = SetMapToMapListIndex
+local orgSetMapToQuestCondition = SetMapToQuestCondition
 
 local function LogMessage(type, message, ...)
-	d(zo_strjoin(" ", LIB_NAME, type, message, ...))
+	if not lib.debugMode then return end
+	df("[%s] %s: %s", LIB_NAME, type, zo_strjoin(" ", message, ...))
 end
 
 local function UpdateWaypointPin()
@@ -54,7 +57,7 @@ local function RestoreMapPing()
 	EVENT_MANAGER:UnregisterForUpdate(LIB_IDENTIFIER_RESTORE)
 	SOUNDS.MAP_PING = mapPingSound
 	SOUNDS.MAP_PING_REMOVE = mapPingRemoveSound
-	CALLBACK_MANAGER:FireCallbacks(LIB_EVENT_STATE_CHANGED, false)
+	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, false)
 end
 
 local function UnmuteMapPing()
@@ -107,9 +110,10 @@ local function SetWaypointSilently(x, y)
 end
 
 local function GetMapInfoForReset()
-	local isPlayerLocation =(GetMapName() == GetPlayerLocationName()) or(GetMapContentType() == MAP_CONTENT_DUNGEON)
-	local isZoneMap =(GetMapType() == MAPTYPE_ZONE and GetMapContentType() ~= MAP_CONTENT_DUNGEON)
-	local isSubZoneMap =(GetMapType() == MAPTYPE_SUBZONE)
+	local contentType, mapType = GetMapContentType(), GetMapType()
+	local isPlayerLocation =(contentType == MAP_CONTENT_DUNGEON) or(GetZoneNameByIndex(GetCurrentMapZoneIndex()) == GetUnitZone("player"))
+	local isZoneMap =(mapType == MAPTYPE_ZONE and contentType ~= MAP_CONTENT_DUNGEON)
+	local isSubZoneMap =(mapType == MAPTYPE_SUBZONE)
 	local mapFloor, mapFloorCount = GetMapFloorInfo()
 	return isPlayerLocation, isZoneMap, isSubZoneMap, mapFloor, mapFloorCount
 end
@@ -152,11 +156,11 @@ end
 
 local function CalculateMeasurements(mapId, localX, localY)
 	-- select the map corner farthest from the player position
-	local wpX, wpY = 0.05, 0.05
+	local wpX, wpY = 0.085, 0.085
 	-- on some maps we cannot set the waypoint to the map border (e.g. Aurdion)
 	-- Opposite corner:
-	if (localX < 0.5) then wpX = 0.95 end
-	if (localY < 0.5) then wpY = 0.95 end
+	if (localX < 0.5) then wpX = 0.915 end
+	if (localY < 0.5) then wpY = 0.915 end
 
 	-- set measurement waypoint
 	SetWaypointSilently(wpX, wpY)
@@ -179,8 +183,7 @@ local function CalculateMeasurements(mapId, localX, localY)
 	local mapIndex = GetCurrentMapIndex() or 1
 
 	-- switch to world map so we can calculate the global map scale and offset
-	orgSetMapToMapListIndex(1)
-	if not(GetMapType() == MAPTYPE_WORLD) then
+	if orgSetMapToMapListIndex(1) == SET_MAP_RESULT_FAILED then
 		-- failed to switch to the world map
 		LogMessage(LOG_NOTICE, "Could not switch to world map")
 		return
@@ -239,6 +242,23 @@ local function HookSetMapToMapListIndex()
 	SetMapToMapListIndex = NewSetMapToMapListIndex
 end
 
+local function HookSetMapToQuestCondition()
+	orgSetMapToQuestCondition = SetMapToQuestCondition
+	local function NewSetMapToQuestCondition(...)
+		local result = orgSetMapToQuestCondition(...)
+		if result ~= SET_MAP_RESULT_MAP_FAILED then
+			-- To change or not to change, that's the question
+			if lib:CalculateMapMeasurements() == true then
+				result = SET_MAP_RESULT_MAP_CHANGED
+				orgSetMapToQuestCondition(...)
+			end
+		end
+		-- All stuff is done before anyone triggers an "OnWorldMapChanged" event due to this result
+		return result
+	end
+	SetMapToQuestCondition = NewSetMapToQuestCondition
+end
+
 -- Unregister handler from older libGPS
 EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER_INIT, EVENT_PLAYER_ACTIVATED)
 
@@ -258,6 +278,7 @@ EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_INIT, EVENT_PLAYER_ACTIVATED, func
 	EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_UNMUTE, EVENT_MAP_PING, HandleMapPingEvent)
 
 	HookSetMapToMapListIndex()
+	HookSetMapToQuestCondition()
 end )
 
 ------------------------ public functions ----------------------
@@ -298,13 +319,13 @@ function lib:CalculateMapMeasurements()
 	if (mapMeasurements[mapId]) then return end
 
 	-- no need to measure the world map
-	if (GetMapType() == MAPTYPE_WORLD) then
+	if (GetCurrentMapIndex() == 1) then
 		mapMeasurements[mapId] = {
 			scaleX = 1,
 			scaleY = 1,
 			offsetX = 0,
 			offsetY = 0,
-			mapIndex = GetCurrentMapIndex()
+			mapIndex = 1
 		}
 		return
 	end
@@ -316,9 +337,7 @@ function lib:CalculateMapMeasurements()
 		return
 	end
 
-	ZO_WorldMap:StopMovingOrResizing()
-
-	CALLBACK_MANAGER:FireCallbacks(LIB_EVENT_STATE_CHANGED, true)
+	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, true)
 
 	-- check some facts about the current map, so we can reset it later
 	local oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount = GetMapInfoForReset()
@@ -349,7 +368,7 @@ function lib:CalculateMapMeasurements()
 				-- another SetWaypointSilently without event
 				mutes = mutes - 1
 				-- measure only: no backup, no restore
-				assert(CalculateMeasurements(coldharbourId, GetMapPlayerPosition("player")) == coldharbourIndex, "coldharbour is not map index 23?!?")
+				if (CalculateMeasurements(coldharbourId, GetMapPlayerPosition("player")) ~= coldharbourIndex) then LogMessage(LOG_WARNING, "coldharbour is not map index 23?!?") end
 				-- set to coldharbour
 				orgSetMapToMapListIndex(coldharbourIndex)
 			end
@@ -358,8 +377,11 @@ function lib:CalculateMapMeasurements()
 			-- calculate waypoint coodinates within coldharbour
 			x =(x - measurements.offsetX) / measurements.scaleX
 			y =(y - measurements.offsetY) / measurements.scaleY
-			assert(not(x < 0 or x > 1 or y < 0 or y > 1), "Cannot reset waypoint because it was outside of the world map")
-			PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+			if not(x < 0 or x > 1 or y < 0 or y > 1) then
+				PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+			else
+				LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of the world map")
+			end
 		end
 	else
 		-- setting and removing causes two events
@@ -463,4 +485,9 @@ function lib:MapZoomInMax(x, y)
 	end
 
 	return result
+end
+
+SLASH_COMMANDS["/libgpsdebug"] = function(value)
+	lib.debugMode =(tonumber(value) == 1)
+	df("[LibGPS2] debug mode %s", lib.debugMode and "enabled" or "disabled")
 end
