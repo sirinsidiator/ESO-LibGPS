@@ -8,27 +8,56 @@
 	<property name="tempdir" location="${basedir}/../temp" />
 	<property name="targetdir" location="${basedir}/../target" />
 
+	<target name="getIsCustomVersion">
+		<input addproperty="buildcustom" validargs="y,n" defaultvalue="n" message="Build with custom version number?" />
+		<condition property="isCustomVersion">
+			<equals arg1="y" arg2="${buildcustom}" />
+		</condition>
+	</target>
+
+	<target name="getCustomVersion" if="isCustomVersion">
+		<loadproperties srcFile="build.number" />
+		<script language="javascript">
+			<![CDATA[
+				var buildNumber = project.getProperty("build.number");
+				project.setProperty("build.number", parseInt(buildNumber) - 1);
+				]]>
+		</script>
+		<input addproperty="finalVersion" defaultvalue="${build.number}" message="Please enter custom version number:" />
+		<script language="javascript">
+			<![CDATA[
+				var before = project.getProperty("finalVersion");
+				project.setProperty("fileVersion", before.replaceAll("\\.", "_"));
+				]]>
+		</script>
+	</target>
+
+	<target name="getVersion" unless="isCustomVersion">
+		<buildnumber file="build.number" />
+		<property name="finalVersion" value="${build.number}" />
+		<property name="fileVersion" value="${build.number}" />
+	</target>
+
 	<target name="copyToAddonFolder">
 		<delete dir="${addondir}" />
 		<copy todir="${addondir}">
 			<fileset dir="${srcdir}" />
 		</copy>
 		<replace file="${addondir}/${ant.project.name}.txt" token="VERSION_NUMBER" value="development" />
-		<replace file="${addondir}/${ant.project.name}/${ant.project.name}.lua" token="VERSION_NUMBER" value="999" />
+		<replace file="${addondir}/${ant.project.name}/${ant.project.name}.lua" token="999) -- only for test purposes. releases will get a smaller number" value="999)" />
 	</target>
 
-	<target name="createArchive">
+	<target name="createArchive" depends="getIsCustomVersion,getCustomVersion,getVersion">
 		<delete includeemptydirs="true" dir="${tempdir}" />
-		<buildnumber file="build.number" />
 
 		<copy todir="${tempdir}/${ant.project.name}">
 			<fileset dir="${srcdir}" />
 		</copy>
 
-		<replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="VERSION_NUMBER" value="${version}.${build.number}" />
-		<replace file="${tempdir}/${ant.project.name}/${ant.project.name}/${ant.project.name}.lua" token="VERSION_NUMBER" value="${version}.${build.number}" />
+		<replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="VERSION_NUMBER" value="${finalVersion}" />
+		<replace file="${tempdir}/${ant.project.name}/${ant.project.name}/${ant.project.name}.lua" token="999) -- only for test purposes. releases will get a smaller number" value="${finalVersion})" />
 
-		<zip destfile="${targetdir}/${ant.project.name}v${version}_${build.number}.zip">
+		<zip destfile="${targetdir}/${ant.project.name}r${fileVersion}.zip">
 			<fileset dir="${tempdir}" />
 		</zip>
 		<delete includeemptydirs="true" dir="${tempdir}" />

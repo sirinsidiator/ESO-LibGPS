@@ -3,7 +3,7 @@
 ------------------------------------------------------------------
 
 local LIB_NAME = "LibGPS2"
-local lib = LibStub:NewLibrary(LIB_NAME, VERSION_NUMBER)
+local lib = LibStub:NewLibrary(LIB_NAME, 999) -- only for test purposes. releases will get a smaller number
 
 if not lib then
 	return
