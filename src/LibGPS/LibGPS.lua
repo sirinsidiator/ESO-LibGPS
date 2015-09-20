@@ -113,7 +113,7 @@ end
 
 local function GetMapInfoForReset()
 	local contentType, mapType, zoneIndex = GetMapContentType(), GetMapType(), GetCurrentMapZoneIndex()
-	local isPlayerLocation = zoneIndex ~= nil and zoneIndex < 2147483647 and GetZoneNameByIndex(zoneIndex) == GetUnitZone("player")
+	local isPlayerLocation =(zoneIndex ~= nil and zoneIndex < 2147483647 and GetZoneNameByIndex(zoneIndex) == GetUnitZone("player")) or(GetMapName() == GetPlayerLocationName())
 	local isZoneMap =(mapType == MAPTYPE_ZONE and contentType ~= MAP_CONTENT_DUNGEON)
 	local isSubZoneMap =(mapType == MAPTYPE_SUBZONE)
 	local mapFloor, mapFloorCount = GetMapFloorInfo()
@@ -312,171 +312,86 @@ end
 
 --- Calculates the measurements for the current map and all parent maps.
 --- This method does nothing if there is already a cached measurement for the active map.
-if GetAPIVersion() <= 100011 then
-	function lib:CalculateMapMeasurements()
-		-- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
-		if (GetMapType() == MAPTYPE_COSMIC) then return end
+function lib:CalculateMapMeasurements()
+	-- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
+	if (GetMapType() == MAPTYPE_COSMIC) then return end
 
-		-- no need to take measurements more than once
-		local mapId = GetMapTileTexture()
-		if (mapMeasurements[mapId]) then return end
+	-- no need to take measurements more than once
+	local mapId = GetMapTileTexture()
+	if (mapMeasurements[mapId]) then return end
 
-		-- no need to measure the world map
-		if (GetCurrentMapIndex() == 1) then
-			mapMeasurements[mapId] = {
-				scaleX = 1,
-				scaleY = 1,
-				offsetX = 0,
-				offsetY = 0,
-				mapIndex = 1
-			}
-			return
-		end
+	-- no need to measure the world map
+	if (GetCurrentMapIndex() == 1) then
+		mapMeasurements[mapId] = {
+			scaleX = 1,
+			scaleY = 1,
+			offsetX = 0,
+			offsetY = 0,
+			mapIndex = 1
+		}
+		return
+	end
 
-		-- get the player position on the current map
-		local localX, localY = GetMapPlayerPosition("player")
-		if (localX == 0 and localY == 0) then
-			-- cannot take measurements while player position is not initialized
-			return
-		end
+	-- get the player position on the current map
+	local localX, localY = GetMapPlayerPosition("player")
+	if (localX == 0 and localY == 0) then
+		-- cannot take measurements while player position is not initialized
+		return
+	end
 
-		CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, true)
+	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, true)
 
-		-- check some facts about the current map, so we can reset it later
-		local oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount = GetMapInfoForReset()
+	-- check some facts about the current map, so we can reset it later
+	local oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount = GetMapInfoForReset()
 
-		-- save waypoint location
-		local oldWaypointX, oldWaypointY = GetMapPlayerWaypoint()
+	-- save waypoint location
+	local oldWaypointX, oldWaypointY = GetMapPlayerWaypoint()
 
-		local mapIndex = CalculateMeasurements(mapId, localX, localY)
+	local mapIndex = CalculateMeasurements(mapId, localX, localY)
 
-		-- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from LUA only).
-		-- Not necessarily on the map we are coming from. Therefore the waypoint is re-set at global or coldhabour level.
-		if (oldWaypointX ~= 0 or oldWaypointY ~= 0) then
-			needWaypointRestore = true
-			local measurements = mapMeasurements[mapId]
-			local x = oldWaypointX * measurements.scaleX + measurements.offsetX
-			local y = oldWaypointY * measurements.scaleY + measurements.offsetY
-			-- setting a ping "twice" does not raise two events
-			if (x > 0 and x < 1 and y > 0 and y < 1) then
-				PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
-			else
-				-- when the waypoint is outside of the Tamriel map we can try if it is in coldharbour
-				local coldharbourIndex = 23
+	-- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from LUA only).
+	-- Not necessarily on the map we are coming from. Therefore the waypoint is re-set at global or coldhabour level.
+	if (oldWaypointX ~= 0 or oldWaypointY ~= 0) then
+		needWaypointRestore = true
+		local measurements = mapMeasurements[mapId]
+		local x = oldWaypointX * measurements.scaleX + measurements.offsetX
+		local y = oldWaypointY * measurements.scaleY + measurements.offsetY
+		-- setting a ping "twice" does not raise two events
+		if (x > 0 and x < 1 and y > 0 and y < 1) then
+			SetWaypointSilently(x, y)
+		else
+			-- when the waypoint is outside of the Tamriel map we can try if it is in coldharbour
+			local coldharbourIndex = 23
+			-- set to coldharbour
+			orgSetMapToMapListIndex(coldharbourIndex)
+			local coldharbourId = GetMapTileTexture()
+			-- coldharbour measured?
+			if not mapMeasurements[coldharbourId] then
+				-- another SetWaypointSilently without event
+				-- measure only: no backup, no restore
+				if (CalculateMeasurements(coldharbourId, GetMapPlayerPosition("player")) ~= coldharbourIndex) then LogMessage(LOG_WARNING, "coldharbour is not map index 23?!?") end
 				-- set to coldharbour
 				orgSetMapToMapListIndex(coldharbourIndex)
-				local coldharbourId = GetMapTileTexture()
-				-- coldharbour measured?
-				if not mapMeasurements[coldharbourId] then
-					-- another SetWaypointSilently without event
-					mutes = mutes - 1
-					-- measure only: no backup, no restore
-					if (CalculateMeasurements(coldharbourId, GetMapPlayerPosition("player")) ~= coldharbourIndex) then LogMessage(LOG_WARNING, "coldharbour is not map index 23?!?") end
-					-- set to coldharbour
-					orgSetMapToMapListIndex(coldharbourIndex)
-				end
-				measurements = mapMeasurements[coldharbourId]
-
-				-- calculate waypoint coodinates within coldharbour
-				x =(x - measurements.offsetX) / measurements.scaleX
-				y =(y - measurements.offsetY) / measurements.scaleY
-				if not(x < 0 or x > 1 or y < 0 or y > 1) then
-					PingMap(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
-				else
-					LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of the world map")
-				end
 			end
-		else
-			-- setting and removing causes two events
-			mutes = mutes + 1
-			RemovePlayerWaypoint()
-		end
+			measurements = mapMeasurements[coldharbourId]
 
-		-- Go to initial map including coldhabour
-		return ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
-	end
-else
-	function lib:CalculateMapMeasurements()
-		-- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
-		if (GetMapType() == MAPTYPE_COSMIC) then return end
-
-		-- no need to take measurements more than once
-		local mapId = GetMapTileTexture()
-		if (mapMeasurements[mapId]) then return end
-
-		-- no need to measure the world map
-		if (GetCurrentMapIndex() == 1) then
-			mapMeasurements[mapId] = {
-				scaleX = 1,
-				scaleY = 1,
-				offsetX = 0,
-				offsetY = 0,
-				mapIndex = 1
-			}
-			return
-		end
-
-		-- get the player position on the current map
-		local localX, localY = GetMapPlayerPosition("player")
-		if (localX == 0 and localY == 0) then
-			-- cannot take measurements while player position is not initialized
-			return
-		end
-
-		CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, true)
-
-		-- check some facts about the current map, so we can reset it later
-		local oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount = GetMapInfoForReset()
-
-		-- save waypoint location
-		local oldWaypointX, oldWaypointY = GetMapPlayerWaypoint()
-
-		local mapIndex = CalculateMeasurements(mapId, localX, localY)
-
-		-- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from LUA only).
-		-- Not necessarily on the map we are coming from. Therefore the waypoint is re-set at global or coldhabour level.
-		if (oldWaypointX ~= 0 or oldWaypointY ~= 0) then
-			needWaypointRestore = true
-			local measurements = mapMeasurements[mapId]
-			local x = oldWaypointX * measurements.scaleX + measurements.offsetX
-			local y = oldWaypointY * measurements.scaleY + measurements.offsetY
-			-- setting a ping "twice" does not raise two events
-			if (x > 0 and x < 1 and y > 0 and y < 1) then
+			-- calculate waypoint coodinates within coldharbour
+			x =(x - measurements.offsetX) / measurements.scaleX
+			y =(y - measurements.offsetY) / measurements.scaleY
+			if not(x < 0 or x > 1 or y < 0 or y > 1) then
 				SetWaypointSilently(x, y)
 			else
-				-- when the waypoint is outside of the Tamriel map we can try if it is in coldharbour
-				local coldharbourIndex = 23
-				-- set to coldharbour
-				orgSetMapToMapListIndex(coldharbourIndex)
-				local coldharbourId = GetMapTileTexture()
-				-- coldharbour measured?
-				if not mapMeasurements[coldharbourId] then
-					-- another SetWaypointSilently without event
-					-- measure only: no backup, no restore
-					if (CalculateMeasurements(coldharbourId, GetMapPlayerPosition("player")) ~= coldharbourIndex) then LogMessage(LOG_WARNING, "coldharbour is not map index 23?!?") end
-					-- set to coldharbour
-					orgSetMapToMapListIndex(coldharbourIndex)
-				end
-				measurements = mapMeasurements[coldharbourId]
-
-				-- calculate waypoint coodinates within coldharbour
-				x =(x - measurements.offsetX) / measurements.scaleX
-				y =(y - measurements.offsetY) / measurements.scaleY
-				if not(x < 0 or x > 1 or y < 0 or y > 1) then
-					SetWaypointSilently(x, y)
-				else
-					LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of the world map")
-				end
+				LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of the world map")
 			end
-		else
-			-- setting and removing causes two events
-			MuteMapPing()
-			RemovePlayerWaypoint()
 		end
-
-		-- Go to initial map including coldhabour
-		return ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
+	else
+		-- setting and removing causes two events
+		MuteMapPing()
+		RemovePlayerWaypoint()
 	end
+
+	-- Go to initial map including coldhabour
+	return ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
 end
 
 --- Converts the given map coordinates on the current map into coordinates on the Tamriel map.
