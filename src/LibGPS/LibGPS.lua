@@ -121,14 +121,14 @@ end
 local function ResetToInitialMap(mapId, mapIndex, isPlayerLocation, isZoneMap, isSubZoneMap, mapFloor, mapFloorCount)
 	local needUpdate = false
 	-- try to return to the initial map
-	if (isPlayerLocation) then
-		needUpdate = SetMapToPlayerLocation() == SET_MAP_RESULT_MAP_CHANGED
-	elseif (isZoneMap) then
+	if (isZoneMap) then
 		needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
 		if (mapId:find("eyevea")) then
 			-- Eveyea is located on the Tamriel map, but not really a zone or sub zone
 			ProcessMapClick(0.06224, 0.61272)
 		end
+	elseif (isPlayerLocation) then
+		needUpdate = SetMapToPlayerLocation() == SET_MAP_RESULT_MAP_CHANGED
 	elseif (isSubZoneMap) then
 		needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
 
