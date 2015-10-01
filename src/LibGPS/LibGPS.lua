@@ -30,11 +30,6 @@ local orgSetMapToMapListIndex = nil
 local orgSetMapToPlayerLocation = nil
 local orgSetMapFloor = nil
 
-lib.zoneIsPlayerLocation = {
-	-- Imperial Sewer
-	[390] = true,
-}
-
 -- lib.debugMode = 1
 
 local function LogMessage(type, message, ...)
@@ -92,8 +87,10 @@ end
 
 local function HandleMapPingEvent(eventCode, pingEventType, pingType, pingTag, x, y, isPingOwner)
 	local isWaypoint =(pingType == MAP_PIN_TYPE_PLAYER_WAYPOINT and pingTag == "waypoint")
-	LogMessage(LOG_DEBUG, zo_strjoin(" ", "isWaypoint", isWaypoint, "mute", mutes, pingEventType == PING_EVENT_ADDED and "add" or "remove"))
-	if mutes <= 0 or not isWaypoint then
+	if (lib.debugMode) then
+		LogMessage(LOG_DEBUG, "MapPingEvent: isWaypoint", BoolString(isWaypoint), "mute", mutes, pingEventType == PING_EVENT_ADDED and "add" or "remove")
+	end
+	if (mutes <= 0 or not isWaypoint) then
 		-- This is from worldmap.lua
 		if (pingEventType == PING_EVENT_ADDED) then
 			if isPingOwner then
@@ -107,7 +104,7 @@ local function HandleMapPingEvent(eventCode, pingEventType, pingType, pingTag, x
 			end
 			mapPinManager:RemovePins("pings", pingType, pingTag)
 		end
-	elseif isWaypoint then
+	elseif (isWaypoint) then
 		-- reset the sounds once we have seen all of the events we caused ourselves
 		UnmuteMapPing()
 	end
@@ -124,66 +121,54 @@ local function SetWaypointSilently(x, y)
 end
 
 local function GetMapInfoForReset()
-	-- For the floors of Elden Root contentType is "MAP_CONTENT_DUNGEON", if navigating in. Not usable.
-	-- The language-specific encoding "^..." of GetMapName() and GetPlayerLocationName() can differ and must be stripped off.
-	-- The output of GetMapName() and GetPlayerLocationName() differs and is not reliable in all languages: e.g. Gil-Var-Tall Abandon Cave ~= Gil-Var-Tall
-	local contentType, mapType, zoneIndex = GetMapContentType(), GetMapType(), GetCurrentMapZoneIndex()
-	local format, str = zo_strformat, "<<!A:1>>"
-	if (lib.debugMode) then
-		LogMessage(LOG_DEBUG, "GetMapInfoForReset\r\n", zoneIndex, mapType, contentType, "\r\nSubZone:", BoolString(mapType == MAPTYPE_SUBZONE), "Dungeon:", BoolString(contentType == MAP_CONTENT_DUNGEON), "\r\n", GetZoneNameByIndex(zoneIndex), GetUnitZone("player"), "\r\n", format(str, GetMapName()), format(str, GetPlayerLocationName()))
-	end
-	local isPlayerLocation
-	if (mapType ~= MAPTYPE_SUBZONE) then
-		isPlayerLocation = zoneIndex and GetZoneNameByIndex(zoneIndex) == GetUnitZone("player")
-		LogMessage(LOG_DEBUG, "isPlayerLocation by zone name")
-	else
-		if (not lib.zoneIsPlayerLocation[zoneIndex] and contentType ~= MAP_CONTENT_DUNGEON) then
-			-- playerLocation is part of mapName: Gil-Var-Delle Abandon Cave <= Gil-Var-Delle
-			-- mapName is part of playerLocation: Elden Root => Wayshrine of Elden Root
-			local mapName, playerLocation = format(str, GetMapName()), format(str, GetPlayerLocationName())
-			isPlayerLocation =(mapName:find(playerLocation, 1, true) or playerLocation:find(mapName, 1, true)) ~= nil
-			LogMessage(LOG_DEBUG, "isPlayerLocation by location name")
-		else
-			isPlayerLocation = true
-			LogMessage(LOG_DEBUG, "isPlayerLocation forced")
-		end
-	end
+	local contentType, mapType = GetMapContentType(), GetMapType()
 	local isZoneMap =(mapType == MAPTYPE_ZONE and contentType ~= MAP_CONTENT_DUNGEON)
-	local isSubZoneMap =(mapType == MAPTYPE_SUBZONE)
 	local mapFloor, mapFloorCount = GetMapFloorInfo()
 	if (lib.debugMode) then
-		LogMessage(LOG_DEBUG, "isPlayerLocation:", BoolString(isPlayerLocation), "isZoneMap:", BoolString(isZoneMap), "isSubZoneMap:", BoolString(isSubZoneMap), "floor:", mapFloor, "/", mapFloorCount)
+		local isSubZoneMap =(mapType == MAPTYPE_SUBZONE)
+		LogMessage(LOG_DEBUG, "GetMapInfoForReset\r\nZone:", BoolString(isZoneMap), "SubZone:", BoolString(isSubZoneMap), "Dungeon:", BoolString(contentType == MAP_CONTENT_DUNGEON), "floor:", mapFloor, "/", mapFloorCount)
 	end
-	return isPlayerLocation, isZoneMap, isSubZoneMap, mapFloor, mapFloorCount
+	return isZoneMap, mapFloor, mapFloorCount
 end
 
-local function ResetToInitialMap(mapId, mapIndex, isPlayerLocation, isZoneMap, isSubZoneMap, mapFloor, mapFloorCount)
+local function ResetToInitialMap(mapId, mapIndex, isZoneMap, mapFloor, mapFloorCount)
 	local needUpdate = false
 	-- try to return to the initial map
 	if (isZoneMap) then
+		LogMessage(LOG_DEBUG, "Was zone location")
 		needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
 		if (mapId:find("eyevea")) then
 			-- Eveyea is located on the Tamriel map, but not really a zone or sub zone
 			ProcessMapClick(0.06224, 0.61272)
 		end
-	elseif (isPlayerLocation) then
+	else
+		-- First assume it was player location. If it was not player location, mapId will not match
 		needUpdate = orgSetMapToPlayerLocation() == SET_MAP_RESULT_MAP_CHANGED
-	elseif (isSubZoneMap) then
-		needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
+		if (mapFloorCount > 0) then
+			-- some maps do have different floors (e.g. Elden Root)
+			needUpdate = orgSetMapFloor(mapFloor) == SET_MAP_RESULT_MAP_CHANGED or needUpdate
+		end
+		if (GetMapTileTexture() ~= mapId) then
+			LogMessage(LOG_DEBUG, "Was not player location")
+			needUpdate = orgSetMapToMapListIndex(mapIndex) == SET_MAP_RESULT_MAP_CHANGED
 
-		-- determine where on the zone map we have to click to get to the sub zone map
-		local x, y
-		local subZone = mapMeasurements[mapId]
-		local zone = mapMeasurements[GetMapTileTexture()]
-		-- get global coordinates of sub zone center
-		x = subZone.offsetX + subZone.scaleX / 2
-		y = subZone.offsetY + subZone.scaleY / 2
-		-- transform to local zone coordinates
-		x =(x - zone.offsetX) / zone.scaleX
-		y =(y - zone.offsetY) / zone.scaleY
+			-- determine where on the zone map we have to click to get to the sub zone map
+			local x, y
+			local subZone = mapMeasurements[mapId]
+			local zone = mapMeasurements[GetMapTileTexture()]
+			-- get global coordinates of sub zone center
+			x = subZone.offsetX + subZone.scaleX / 2
+			y = subZone.offsetY + subZone.scaleY / 2
+			-- transform to local zone coordinates
+			x =(x - zone.offsetX) / zone.scaleX
+			y =(y - zone.offsetY) / zone.scaleY
 
-		assert(WouldProcessMapClick(x, y), zo_strjoin(nil, "Could not switch to sub zone map \"", GetPlayerLocationName(), "\" mapIndex=", mapIndex, " at ", x, ", ", y))
-		needUpdate = ProcessMapClick(x, y) == SET_MAP_RESULT_MAP_CHANGED or needUpdate
+			assert(WouldProcessMapClick(x, y), zo_strjoin(nil, "Could not switch to sub zone map \"", GetPlayerLocationName(), "\" mapIndex=", mapIndex, " at ", x, ", ", y))
+			needUpdate = ProcessMapClick(x, y) == SET_MAP_RESULT_MAP_CHANGED or needUpdate
+		else
+			LogMessage(LOG_DEBUG, "Was player location")
+			return needUpdate
+		end
 	end
 	if (mapFloorCount > 0) then
 		-- some maps do have different floors (e.g. Elden Root)
@@ -304,6 +289,7 @@ end
 local function HookSetMapToPlayerLocation()
 	orgSetMapToPlayerLocation = SetMapToPlayerLocation
 	local function NewSetMapToPlayerLocation(...)
+		if not DoesUnitExist("player") then return SET_MAP_RESULT_MAP_FAILED end
 		local result = orgSetMapToPlayerLocation(...)
 		if result ~= SET_MAP_RESULT_MAP_FAILED then
 			-- To change or not to change, that's the question
@@ -411,6 +397,14 @@ function lib:GetCurrentMapMeasurements()
 	return mapMeasurements[mapId]
 end
 
+local function GetAddon()
+	local addOn
+	local function errornous() addOn = 'a' + 1 end
+	local function errorHandler(err) addOn = string.match(err, "'GetAddon'.+user:/AddOns/(.+)") end
+	xpcall(errornous, errorHandler)
+	return addOn
+end
+
 --- Calculates the measurements for the current map and all parent maps.
 --- This method does nothing if there is already a cached measurement for the active map.
 function lib:CalculateMapMeasurements(returnToInitialMap)
@@ -419,7 +413,7 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
 
 	-- no need to take measurements more than once
 	local mapId = GetMapTileTexture()
-	if (mapMeasurements[mapId]) then return end
+	if (mapMeasurements[mapId] or mapId == "") then return end
 
 	-- no need to measure the world map
 	if (GetCurrentMapIndex() == 1) then
@@ -431,6 +425,9 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
 			mapIndex = 1
 		}
 		return
+	end
+	if (lib.debugMode) then
+		LogMessage("Called from", GetAddon(), "for", mapId)
 	end
 
 	-- get the player position on the current map
@@ -447,9 +444,9 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
 	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, true)
 
 	-- check some facts about the current map, so we can reset it later
-	local oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount
+	local oldMapIsZoneMap, oldMapFloor, oldMapFloorCount
 	if returnToInitialMap then
-		oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount = GetMapInfoForReset()
+		oldMapIsZoneMap, oldMapFloor, oldMapFloorCount = GetMapInfoForReset()
 	end
 
 	-- save waypoint location
@@ -500,7 +497,7 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
 
 	if (returnToInitialMap) then
 		-- Go to initial map including coldhabour
-		return ResetToInitialMap(mapId, mapIndex, oldMapIsPlayerLocation, oldMapIsZoneMap, oldMapIsSubZoneMap, oldMapFloor, oldMapFloorCount)
+		return ResetToInitialMap(mapId, mapIndex, oldMapIsZoneMap, oldMapFloor, oldMapFloorCount)
 	else
 		return true
 	end
