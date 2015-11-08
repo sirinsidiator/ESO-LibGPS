@@ -20,15 +20,18 @@ local LOG_WARNING = "Warning"
 local LOG_NOTICE = "Notice"
 local LOG_DEBUG = "Debug"
 
-local mapMeasurements = { }
-local mapPinManager = nil
+lib.mapMeasurements = lib.mapMeasurements or { }
+local mapMeasurements = lib.mapMeasurements
 local mapPingSound = SOUNDS.MAP_PING
 local mapPingRemoveSound = SOUNDS.MAP_PING_REMOVE
 local mutes = 0
 local needWaypointRestore = false
 local orgSetMapToMapListIndex = nil
+local orgSetMapToQuestCondition = nil
 local orgSetMapToPlayerLocation = nil
+local orgSetMapToQuestZone = nil
 local orgSetMapFloor = nil
+local measuring = false
 
 -- lib.debugMode = 1
 
@@ -42,13 +45,13 @@ local function BoolString(b)
 end
 
 local function UpdateWaypointPin()
-	if (mapPinManager) then
-		mapPinManager:RemovePins("pings", MAP_PIN_TYPE_PLAYER_WAYPOINT, "waypoint")
+	if (lib.mapPinManager) then
+		lib.mapPinManager:RemovePins("pings", MAP_PIN_TYPE_PLAYER_WAYPOINT, "waypoint")
 
 		local x, y = GetMapPlayerWaypoint()
 		if (x ~= 0 and y ~= 0) then
 			LogMessage(LOG_DEBUG, "CreatePin", x, y)
-			mapPinManager:CreatePin(MAP_PIN_TYPE_PLAYER_WAYPOINT, "waypoint", x, y)
+			lib.mapPinManager:CreatePin(MAP_PIN_TYPE_PLAYER_WAYPOINT, "waypoint", x, y)
 		end
 	else
 		ZO_WorldMap_UpdateMap()
@@ -65,7 +68,8 @@ local function RestoreMapPing()
 	EVENT_MANAGER:UnregisterForUpdate(LIB_IDENTIFIER_RESTORE)
 	SOUNDS.MAP_PING = mapPingSound
 	SOUNDS.MAP_PING_REMOVE = mapPingRemoveSound
-	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, false)
+	measuring = false
+	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, measuring)
 end
 
 local function UnmuteMapPing()
@@ -96,13 +100,13 @@ local function HandleMapPingEvent(eventCode, pingEventType, pingType, pingTag, x
 			if isPingOwner then
 				PlaySound(SOUNDS.MAP_PING)
 			end
-			mapPinManager:RemovePins("pings", pingType, pingTag)
-			mapPinManager:CreatePin(pingType, pingTag, x, y)
+			lib.mapPinManager:RemovePins("pings", pingType, pingTag)
+			lib.mapPinManager:CreatePin(pingType, pingTag, x, y)
 		elseif (pingEventType == PING_EVENT_REMOVED) then
 			if isPingOwner then
 				PlaySound(SOUNDS.MAP_PING_REMOVE)
 			end
-			mapPinManager:RemovePins("pings", pingType, pingTag)
+			lib.mapPinManager:RemovePins("pings", pingType, pingTag)
 		end
 	elseif (isWaypoint) then
 		-- reset the sounds once we have seen all of the events we caused ourselves
@@ -241,9 +245,9 @@ local function CalculateMeasurements(mapId, localX, localY)
 end
 
 local function InterceptMapPinManager()
-	if (mapPinManager) then return end
+	if (lib.mapPinManager) then return end
 	ZO_WorldMap_AddCustomPin(DUMMY_PIN_TYPE, function(pinManager)
-		mapPinManager = pinManager
+		lib.mapPinManager = pinManager
 		ZO_WorldMap_SetCustomPinEnabled(_G[DUMMY_PIN_TYPE], false)
 	end , nil, { level = 0, size = 0, texture = "" })
 	ZO_WorldMap_SetCustomPinEnabled(_G[DUMMY_PIN_TYPE], true)
@@ -269,7 +273,7 @@ local function HookSetMapToMapListIndex()
 end
 
 local function HookSetMapToQuestCondition()
-	local orgSetMapToQuestCondition = SetMapToQuestCondition
+	orgSetMapToQuestCondition = SetMapToQuestCondition
 	local function NewSetMapToQuestCondition(...)
 		local result = orgSetMapToQuestCondition(...)
 		if result ~= SET_MAP_RESULT_MAP_FAILED then
@@ -306,7 +310,7 @@ local function HookSetMapToPlayerLocation()
 end
 
 local function HookSetMapToQuestZone()
-	local orgSetMapToQuestZone = SetMapToQuestZone
+	orgSetMapToQuestZone = SetMapToQuestZone
 	local function NewSetMapToQuestZone(...)
 		local result = orgSetMapToQuestZone(...)
 		if result ~= SET_MAP_RESULT_MAP_FAILED then
@@ -345,32 +349,50 @@ local function HookSetMapFloor()
 	SetMapFloor = NewSetMapFloor
 end
 
--- Unregister handler from older libGPS
+--- Unregister handler from older libGPS ( < 3)
+EVENT_MANAGER:UnregisterForEvent("LibGPS2_SaveWaypoint", EVENT_PLAYER_DEACTIVATED)
+EVENT_MANAGER:UnregisterForEvent("LibGPS2_RestoreWaypoint", EVENT_PLAYER_ACTIVATED)
+
+--- Unregister handler from older libGPS ( <= 5.1)
 EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER_INIT, EVENT_PLAYER_ACTIVATED)
 
-EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_INIT, EVENT_PLAYER_ACTIVATED, function()
-	EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER_INIT, EVENT_PLAYER_ACTIVATED)
+if (lib.Unload) then
+	-- Undo action from older libGPS ( >= 5.2)
+	lib:Unload()
+end
 
-	InterceptMapPinManager()
+--- Register new Unload
+function lib:Unload()
+	SetMapToMapListIndex = orgSetMapToMapListIndex
+	SetMapToQuestCondition = orgSetMapToQuestCondition
+	SetMapToPlayerLocation = orgSetMapToPlayerLocation
+	SetMapToQuestZone = orgSetMapToQuestZone
+	SetMapFloor = orgSetMapFloor
+end
 
-	-- Unregister handler from older libGPS
-	EVENT_MANAGER:UnregisterForEvent("LibGPS2_SaveWaypoint", EVENT_PLAYER_DEACTIVATED)
-	EVENT_MANAGER:UnregisterForEvent("LibGPS2_RestoreWaypoint", EVENT_PLAYER_ACTIVATED)
+InterceptMapPinManager()
 
-	-- Unregister handler from older libGPS, otherwise the wrong handler is called
-	EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER_UNMUTE, EVENT_MAP_PING)
-	EVENT_MANAGER:UnregisterForEvent("ZO_WorldMap", EVENT_MAP_PING)
+--- Unregister handler from older libGPS, otherwise the wrong handler is called
+EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER_UNMUTE, EVENT_MAP_PING)
+EVENT_MANAGER:UnregisterForEvent("ZO_WorldMap", EVENT_MAP_PING)
 
-	EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_UNMUTE, EVENT_MAP_PING, HandleMapPingEvent)
+EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER_UNMUTE, EVENT_MAP_PING, HandleMapPingEvent)
 
-	HookSetMapToMapListIndex()
-	HookSetMapToQuestCondition()
-	HookSetMapToPlayerLocation()
-	HookSetMapToQuestZone()
-	HookSetMapFloor()
-end )
+HookSetMapToMapListIndex()
+HookSetMapToQuestCondition()
+HookSetMapToPlayerLocation()
+HookSetMapToQuestZone()
+HookSetMapFloor()
 
 ------------------------ public functions ----------------------
+
+function lib:IsReady()
+	return DoesUnitExist("player")
+end
+
+function lib:IsMeasuring()
+	return measuring
+end
 
 --- Removes all cached measurement values.
 function lib:ClearMapMeasurements()
@@ -437,11 +459,10 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
 		return
 	end
 
-	assert(orgSetMapToMapListIndex ~= nil, "CalculateMapMeasurements called before or during player activation.")
-
 	returnToInitialMap = returnToInitialMap ~= false
 
-	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, true)
+	measuring = true
+	CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, measuring)
 
 	-- check some facts about the current map, so we can reset it later
 	local oldMapIsZoneMap, oldMapFloor, oldMapFloorCount
@@ -541,8 +562,9 @@ end
 --- This function zooms and pans to the specified position on the active map.
 function lib:PanToMapPosition(x, y)
 	-- if we don't have access to the mapPinManager we cannot do anything
-	if (not mapPinManager) then return end
+	if (not lib.mapPinManager) then return end
 
+	local mapPinManager = lib.mapPinManager
 	-- create dummy pin
 	local pin = mapPinManager:CreatePin(_G[DUMMY_PIN_TYPE], "libgpsdummy", x, y)
 
