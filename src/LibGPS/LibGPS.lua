@@ -66,6 +66,10 @@ end
 
 local function RestoreMapPing()
 	EVENT_MANAGER:UnregisterForUpdate(LIB_IDENTIFIER_RESTORE)
+	if needWaypointRestore then
+		UpdateWaypointPin()
+		needWaypointRestore = false
+	end
 	SOUNDS.MAP_PING = mapPingSound
 	SOUNDS.MAP_PING_REMOVE = mapPingRemoveSound
 	measuring = false
@@ -78,13 +82,9 @@ local function UnmuteMapPing()
 	if (mutes <= 0) then
 		mutes = 0
 		if wasMuted then
-			if needWaypointRestore then
-				UpdateWaypointPin()
-				needWaypointRestore = false
-			end
 			-- The WaypointIt handler, may called next, uses a muted sound as an indicator.
 			-- Therefore restoring sound is delayed
-			EVENT_MANAGER:RegisterForUpdate(LIB_IDENTIFIER_RESTORE, 100, RestoreMapPing)
+			EVENT_MANAGER:RegisterForUpdate(LIB_IDENTIFIER_RESTORE, 0, RestoreMapPing)
 		end
 	end
 end
