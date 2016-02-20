@@ -1,5 +1,5 @@
 local LIB_IDENTIFIER = "LibMapPing"
-local lib = LibStub:NewLibrary(LIB_IDENTIFIER, 2)
+local lib = LibStub:NewLibrary(LIB_IDENTIFIER, 3)
 
 if not lib then
 	return	-- already loaded and no upgrade necessary
@@ -27,10 +27,11 @@ local originalPingMap, originalRemovePlayerWaypoint, originalRemoveRallyPoint
 local GET_MAP_PING_FUNCTION = {} -- is initialized in Load()
 local REMOVE_MAP_PING_FUNCTION = {} -- also initialized in Load()
 
-lib.MAP_PING_NOT_SET = 0
-lib.MAP_PING_NOT_SET_PENDING = 1
-lib.MAP_PING_SET_PENDING = 2
-lib.MAP_PING_SET = 3
+--- MapPingState is an enumeration of the possible states of a map ping.
+lib.MAP_PING_NOT_SET = 0 --- There is no ping.
+lib.MAP_PING_NOT_SET_PENDING = 1 --- The ping has been removed, but EVENT_MAP_PING has not been processed.
+lib.MAP_PING_SET_PENDING = 2 --- A ping was added, but EVENT_MAP_PING has not been processed.
+lib.MAP_PING_SET = 3 --- There is a ping.
 
 lib.mutePing = {}
 lib.suppressPing = {}
@@ -91,7 +92,10 @@ local function CustomRemoveRallyPoint()
 	originalRemoveRallyPoint()
 end
 
---- Wrapper for PingMap. See PingMap for a description
+--- Wrapper for PingMap.
+--- pingType is one of the three possible MapDisplayPinType for map pings (MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_PIN_TYPE_PING or MAP_PIN_TYPE_RALLY_POINT).
+--- mapType is usually MAP_TYPE_LOCATION_CENTERED.
+--- x and y are the normalized coordinates on the current map.
 function lib:SetMapPing(pingType, mapType, x, y)
 	PingMap(pingType, mapType, x, y)
 end
@@ -106,26 +110,24 @@ function lib:RemoveMapPing(pingType)
 end
 
 --- Wrapper for the different get ping functions. Returns coordinates regardless of their suppression state.
---- The API functions are replaced with modified functions that return 0, 0 when the ping type is suppressed.
+--- The game API functions return 0, 0 when the ping type is suppressed.
+--- pingType is the same as for SetMapPing.
+--- pingTag is optionally used if another group member's MAP_PIN_TYPE_PING should be returned (possible values: group1 .. group24).
 function lib:GetMapPing(pingType, pingTag)
 	local x, y = 0, 0
 	if(GET_MAP_PING_FUNCTION[pingType]) then
-		x, y = GET_MAP_PING_FUNCTION[pingType](pingTag)
+		x, y = GET_MAP_PING_FUNCTION[pingType](pingTag or GetPingTagFromType(pingType))
 	end
 	return x, y
 end
 
---- Returns lib.MAP_PING_NOT_SET, lib.MAP_PING_NOT_SET_PENDING, lib.MAP_PING_SET_PENDING or lib.MAP_PING_SET
---- lib.MAP_PING_NOT_SET - there is no ping
---- lib.MAP_PING_NOT_SET_PENDING - the ping has been removed, but EVENT_MAP_PING has not been processed
---- lib.MAP_PING_SET_PENDING - a ping was added, but EVENT_MAP_PING has not been processed
---- lib.MAP_PING_SET - there is a ping
+--- Returns the MapPingState for the pingType and pingTag.
 function lib:GetMapPingState(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
 	return lib.pingState[key] or lib.MAP_PING_NOT_SET
 end
 
---- Returns true if ping state is lib.MAP_PING_SET_PENDING or lib.MAP_PING_SET
+--- Returns true if ping state is MAP_PING_SET_PENDING or MAP_PING_SET
 function lib:HasMapPing(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
 	local state = lib.pingState[key]
@@ -133,6 +135,7 @@ function lib:HasMapPing(pingType, pingTag)
 end
 
 --- Refreshes the pin icon for the pingType on the worldmap
+--- Returns true if the pin has been refreshed.
 function lib:RefreshMapPin(pingType, pingTag)
 	if(not g_mapPinManager) then
 		Log("PinManager not available. Using ZO_WorldMap_UpdateMap instead.")
@@ -151,19 +154,22 @@ function lib:RefreshMapPin(pingType, pingTag)
 	return false
 end
 
---- Returns true if the normalized position is within the map
+--- Returns true if the normalized position is within 0 and 1.
 function lib:IsPositionOnMap(x, y)
 	return not (x < 0 or y < 0 or x > 1 or y > 1 or (x == 0 and y == 0))
 end
 
---- Mutes the map ping of the specified type, so it does not make a sound when it is set
+--- Mutes the map ping of the specified type, so it does not make a sound when it is set. 
+--- Do not forget to call UnmutePing later, otherwise the sound will be permanently muted!
 function lib:MutePing(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
 	local mute = lib.mutePing[key] or 0
 	lib.mutePing[key] = mute + 1
 end
 
---- Unmutes the map ping of the specified type
+--- Unmutes the map ping of the specified type.
+--- Do not call this more often than you called MutePing, or you might interfere with other addons.
+--- The sounds are played between the BeforePing* and AfterPing* callbacks are fired.
 function lib:UnmutePing(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
 	local mute = (lib.mutePing[key] or 0) - 1
@@ -177,9 +183,10 @@ function lib:IsPingMuted(pingType, pingTag)
 	return lib.mutePing[key] and lib.mutePing[key] > 0
 end
 
---- Suppresses the map ping of the specified type, so that it neither makes a sound nor shows up on the map
---- This also makes the API functions return 0, 0 for that ping
---- In order to access the actual coordinates lib:GetMapPing has to be used
+--- Suppresses the map ping of the specified type, so that it neither makes a sound nor shows up on the map.
+--- This also makes the API functions return 0, 0 for that ping.
+--- In order to access the actual coordinates lib:GetMapPing has to be used.
+--- Do not forget to call UnsuppressPing later, otherwise map pings won't work anymore for the user and other addons!
 function lib:SuppressPing(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
 	local suppress = lib.suppressPing[key] or 0
@@ -187,6 +194,7 @@ function lib:SuppressPing(pingType, pingTag)
 end
 
 --- Unsuppresses the map ping so it shows up again
+--- Do not call this more often than you called SuppressPing, or you might interfere with other addons.
 function lib:UnsuppressPing(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
 	local suppress = (lib.suppressPing[key] or 0) - 1
@@ -235,14 +243,14 @@ local function HandleMapPing(eventCode, pingEventType, pingType, pingTag, x, y, 
 	end
 end
 
---- Register to callbacks from the library
---- Valid events are BeforePingAdded, AfterPingAdded, BeforePingRemoved and AfterPingRemoved
---- These are fired at certain points during handling EVENT_MAP_PING
+--- Register to callbacks from the library.
+--- Valid events are BeforePingAdded, AfterPingAdded, BeforePingRemoved and AfterPingRemoved.
+--- These are fired at certain points during handling EVENT_MAP_PING.
 function lib:RegisterCallback(eventName, callback)
 	lib.cm:RegisterCallback(eventName, callback)
 end
 
---- Unregister from callbacks. See lib:RegisterCallback
+--- Unregister from callbacks. See lib:RegisterCallback.
 function lib:UnregisterCallback(eventName, callback)
 	lib.cm:UnregisterCallback(eventName, callback)
 end
