@@ -26,14 +26,8 @@ local LOG_DEBUG = "Debug"
 local POSITION_MIN = 0.085
 local POSITION_MAX = 0.915
 
-local TAMRIEL_MAP_INDEX, COLDHARBOUR_MAP_INDEX
-if(GetAPIVersion() == 100013) then -- TODO: remove
-	TAMRIEL_MAP_INDEX = 1
-	COLDHARBOUR_MAP_INDEX = 23
-else
-	TAMRIEL_MAP_INDEX = GetZoneIndex(2)
-	COLDHARBOUR_MAP_INDEX = GetZoneIndex(131)
-end
+local TAMRIEL_MAP_INDEX = GetZoneIndex(2)
+local COLDHARBOUR_MAP_INDEX = GetZoneIndex(131)
 
 --lib.debugMode = 1 -- TODO
 lib.mapMeasurements = lib.mapMeasurements or {}
