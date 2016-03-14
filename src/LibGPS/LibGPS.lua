@@ -40,6 +40,7 @@ lib.mapMeasurements = lib.mapMeasurements or {}
 local mapMeasurements = lib.mapMeasurements
 lib.mapStack = lib.mapStack or {}
 local mapStack = lib.mapStack
+lib.suppressCount = lib.suppressCount or 0
 
 local MAP_PIN_TYPE_PLAYER_WAYPOINT = MAP_PIN_TYPE_PLAYER_WAYPOINT
 local currentWaypointX, currentWaypointY, currentWaypointMapId = 0, 0, nil
@@ -72,7 +73,10 @@ end
 
 local function FinalizeMeasurement()
 	EVENT_MANAGER:UnregisterForUpdate(LIB_IDENTIFIER_FINALIZE)
-	LMP:UnsuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
+	while lib.suppressCount > 0 do
+		LMP:UnsuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
+		lib.suppressCount = lib.suppressCount - 1
+	end
 	if needWaypointRestore then
 		LogMessage(LOG_DEBUG, "Update waypoint pin", LMP:GetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT))
 		LMP:RefreshMapPin(MAP_PIN_TYPE_PLAYER_WAYPOINT)
@@ -99,6 +103,7 @@ end
 
 local function SetMeasurementWaypoint(x, y)
 	-- this waypoint stays invisible for others
+	lib.suppressCount = lib.suppressCount + 1
 	LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 	LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
 end
