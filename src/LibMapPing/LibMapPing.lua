@@ -1,5 +1,5 @@
 local LIB_IDENTIFIER = "LibMapPing"
-local lib = LibStub:NewLibrary(LIB_IDENTIFIER, 3)
+local lib = LibStub:NewLibrary(LIB_IDENTIFIER, 4)
 
 if not lib then
 	return	-- already loaded and no upgrade necessary
@@ -17,6 +17,8 @@ local MAP_PIN_TAG_PLAYER_WAYPOINT = "waypoint"
 local MAP_PIN_TAG_RALLY_POINT = "rally"
 local PING_CATEGORY = "pings"
 
+local PING_EVENT_WATCHDOG_TIME = 400 -- ms
+
 local MAP_PIN_TAG = {
 	[MAP_PIN_TYPE_PLAYER_WAYPOINT] = MAP_PIN_TAG_PLAYER_WAYPOINT,
 	--[MAP_PIN_TYPE_PING] = group pings have individual tags for each member
@@ -33,14 +35,15 @@ lib.MAP_PING_NOT_SET_PENDING = 1 --- The ping has been removed, but EVENT_MAP_PI
 lib.MAP_PING_SET_PENDING = 2 --- A ping was added, but EVENT_MAP_PING has not been processed.
 lib.MAP_PING_SET = 3 --- There is a ping.
 
-lib.mutePing = {}
-lib.suppressPing = {}
-lib.pingState = {}
+lib.mutePing = lib.mutePing or {}
+lib.suppressPing = lib.suppressPing or {}
+lib.pingState = lib.pingState or {}
+lib.pendingPing = lib.pendingPing or {}
 lib.cm = lib.cm or ZO_CallbackObject:New()
 local g_mapPinManager = lib.mapPinManager
 
 local function GetPingTagFromType(pingType)
-	return MAP_PIN_TAG[pingType] or GetGroupUnitTagByIndex(GetGroupIndexByUnitTag("player"))
+	return MAP_PIN_TAG[pingType] or GetGroupUnitTagByIndex(GetGroupIndexByUnitTag("player")) or ""
 end
 
 local function GetKey(pingType, pingTag)
@@ -48,9 +51,54 @@ local function GetKey(pingType, pingTag)
 	return string.format("%d_%s", pingType, pingTag)
 end
 
+-- TODO keep an eye on worldmap.lua for changes
+local function HandleMapPing(eventCode, pingEventType, pingType, pingTag, x, y, isPingOwner)
+	local key = GetKey(pingType, pingTag)
+	lib.pendingPing[key] = nil
+	if(pingEventType == PING_EVENT_ADDED) then
+		lib.cm:FireCallbacks("BeforePingAdded", pingType, pingTag, x, y, isPingOwner)
+		lib.pingState[key] = lib.MAP_PING_SET
+		g_mapPinManager:RemovePins(PING_CATEGORY, pingType, pingTag)
+		if(not lib:IsPingSuppressed(pingType, pingTag)) then
+			g_mapPinManager:CreatePin(pingType, pingTag, x, y)
+			if(isPingOwner and not lib:IsPingMuted(pingType, pingTag)) then
+				PlaySound(SOUNDS.MAP_PING)
+			end
+		end
+		lib.cm:FireCallbacks("AfterPingAdded", pingType, pingTag, x, y, isPingOwner)
+	elseif(pingEventType == PING_EVENT_REMOVED) then
+		lib.cm:FireCallbacks("BeforePingRemoved", pingType, pingTag, x, y, isPingOwner)
+		lib.pingState[key] = lib.MAP_PING_NOT_SET
+		g_mapPinManager:RemovePins(PING_CATEGORY, pingType, pingTag)
+		if (isPingOwner and not lib:IsPingSuppressed(pingType, pingTag) and not lib:IsPingMuted(pingType, pingTag)) then
+			PlaySound(SOUNDS.MAP_PING_REMOVE)
+		end
+		lib.cm:FireCallbacks("AfterPingRemoved", pingType, pingTag, x, y, isPingOwner)
+	end
+end
+
+local function HandleMapPingEventNotFired()
+	for key, data in pairs(lib.pendingPing) do
+		local pingEventType, pingType, x, y = unpack(data)
+		local pingTag = GetPingTagFromType(pingType)
+		HandleMapPing(0, pingEventType, pingType, pingTag, x, y, true)
+		lib.pendingPing[key] = nil
+		lib.mutePing[key] = 0
+		lib.suppressPing[key] = 0
+	end
+end
+
+local function ResetEventWatchdog(key, ...)
+	lib.pendingPing[key] = {...}
+	EVENT_MANAGER:UnregisterForUpdate(LIB_IDENTIFIER)
+	EVENT_MANAGER:RegisterForUpdate(LIB_IDENTIFIER, PING_EVENT_WATCHDOG_TIME, HandleMapPingEventNotFired)
+end
+
 local function CustomPingMap(pingType, mapType, x, y)
+	if(pingType == MAP_PIN_TYPE_PING and not IsUnitGrouped("player")) then return end
 	local key = GetKey(pingType)
 	lib.pingState[key] = lib.MAP_PING_SET_PENDING
+	ResetEventWatchdog(key, PING_EVENT_ADDED, pingType, x, y)
 	originalPingMap(pingType, mapType, x, y)
 end
 
@@ -78,6 +126,7 @@ end
 local function CustomRemovePlayerWaypoint()
 	local key = GetKey(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_PIN_TAG_PLAYER_WAYPOINT)
 	lib.pingState[key] = lib.MAP_PING_NOT_SET_PENDING
+	ResetEventWatchdog(key, PING_EVENT_REMOVED, MAP_PIN_TYPE_PLAYER_WAYPOINT, 0, 0)
 	originalRemovePlayerWaypoint()
 end
 
@@ -89,6 +138,7 @@ end
 local function CustomRemoveRallyPoint()
 	local key = GetKey(MAP_PIN_TYPE_RALLY_POINT, MAP_PIN_TAG_RALLY_POINT)
 	lib.pingState[key] = lib.MAP_PING_NOT_SET_PENDING
+	ResetEventWatchdog(key, PING_EVENT_REMOVED, MAP_PIN_TYPE_RALLY_POINT, 0, 0)
 	originalRemoveRallyPoint()
 end
 
@@ -159,7 +209,7 @@ function lib:IsPositionOnMap(x, y)
 	return not (x < 0 or y < 0 or x > 1 or y > 1 or (x == 0 and y == 0))
 end
 
---- Mutes the map ping of the specified type, so it does not make a sound when it is set. 
+--- Mutes the map ping of the specified type, so it does not make a sound when it is set.
 --- Do not forget to call UnmutePing later, otherwise the sound will be permanently muted!
 function lib:MutePing(pingType, pingTag)
 	local key = GetKey(pingType, pingTag)
@@ -217,30 +267,6 @@ local function InterceptMapPinManager()
 	end
 	ZO_WorldMap_RefreshCustomPinsOfType()
 	ZO_WorldMapPins.RefreshCustomPins = orgRefreshCustomPins
-end
-
--- TODO keep an eye on worldmap.lua for changes
-local function HandleMapPing(eventCode, pingEventType, pingType, pingTag, x, y, isPingOwner)
-	if(pingEventType == PING_EVENT_ADDED) then
-		lib.cm:FireCallbacks("BeforePingAdded", pingType, pingTag, x, y, isPingOwner)
-		lib.pingState[GetKey(pingType, pingTag)] = lib.MAP_PING_SET
-		g_mapPinManager:RemovePins(PING_CATEGORY, pingType, pingTag)
-		if(not lib:IsPingSuppressed(pingType, pingTag)) then
-			g_mapPinManager:CreatePin(pingType, pingTag, x, y)
-			if(isPingOwner and not lib:IsPingMuted(pingType, pingTag)) then
-				PlaySound(SOUNDS.MAP_PING)
-			end
-		end
-		lib.cm:FireCallbacks("AfterPingAdded", pingType, pingTag, x, y, isPingOwner)
-	elseif(pingEventType == PING_EVENT_REMOVED) then
-		lib.cm:FireCallbacks("BeforePingRemoved", pingType, pingTag, x, y, isPingOwner)
-		lib.pingState[GetKey(pingType, pingTag)] = lib.MAP_PING_NOT_SET
-		g_mapPinManager:RemovePins(PING_CATEGORY, pingType, pingTag)
-		if (isPingOwner and not lib:IsPingSuppressed(pingType, pingTag) and not lib:IsPingMuted(pingType, pingTag)) then
-			PlaySound(SOUNDS.MAP_PING_REMOVE)
-		end
-		lib.cm:FireCallbacks("AfterPingRemoved", pingType, pingTag, x, y, isPingOwner)
-	end
 end
 
 --- Register to callbacks from the library.
