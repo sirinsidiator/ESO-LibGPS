@@ -26,8 +26,8 @@ local LOG_DEBUG = "Debug"
 local POSITION_MIN = 0.085
 local POSITION_MAX = 0.915
 
-local TAMRIEL_MAP_INDEX = GetZoneIndex(2)
-local COLDHARBOUR_MAP_INDEX = GetZoneIndex(131)
+local TAMRIEL_MAP_INDEX = 1
+local COLDHARBOUR_MAP_INDEX = 23
 
 --lib.debugMode = 1 -- TODO
 lib.mapMeasurements = lib.mapMeasurements or {}
@@ -692,7 +692,7 @@ function lib:PopCurrentMap()
 				local y = target.offsetY + (target.scaleY / 2)
 				-- transform to local coordinates
 				local current = mapMeasurements[currentTileTexture]
-				if(not currentTileTexture) then
+				if(not current) then
 					LogMessage(LOG_DEBUG, string.format("No measurement for \"%s\". Returning to player location.", currentTileTexture))
 					return orgSetMapToPlayerLocation()
 				end
