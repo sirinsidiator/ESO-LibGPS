@@ -78,6 +78,7 @@ local function HandleMapPing(eventCode, pingEventType, pingType, pingTag, x, y, 
 end
 
 local function HandleMapPingEventNotFired()
+    EVENT_MANAGER:UnregisterForUpdate(LIB_IDENTIFIER)
     for key, data in pairs(lib.pendingPing) do
         local pingEventType, pingType, x, y = unpack(data)
         local pingTag = GetPingTagFromType(pingType)
