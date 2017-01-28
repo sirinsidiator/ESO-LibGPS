@@ -478,9 +478,9 @@ function lib:GetCurrentMapMeasurements()
 end
 
 --- Returns the mapIndex and zoneIndex of the parent zone for the currently set map.
---- return[1] integer - The mapIndex of the parent zone
---- return[2] integer - The zoneIndex of the parent zone
-function lib:GetCurrentMapParentZoneIndicies()
+--- return[1] number - The mapIndex of the parent zone
+--- return[2] number - The zoneIndex of the parent zone
+function lib:GetCurrentMapParentZoneIndices()
     local measurements = lib:GetCurrentMapMeasurements()
     local mapIndex = measurements.mapIndex
     if(not measurements.zoneIndex) then
