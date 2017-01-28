@@ -128,7 +128,8 @@ local function StoreTamrielMapMeasurements()
             scaleY = 1,
             offsetX = 0,
             offsetY = 0,
-            mapIndex = TAMRIEL_MAP_INDEX
+            mapIndex = TAMRIEL_MAP_INDEX,
+            zoneIndex = GetCurrentMapZoneIndex()
         }
         return true
     end
@@ -161,6 +162,7 @@ local function CalculateMeasurements(mapId, localX, localY)
 
     -- some non-zone maps like Eyevea zoom directly to the Tamriel map
     local mapIndex = GetCurrentMapIndex() or TAMRIEL_MAP_INDEX
+    local zoneIndex = GetCurrentMapZoneIndex()
 
     -- switch to world map so we can calculate the global map scale and offset
     if orgSetMapToMapListIndex(TAMRIEL_MAP_INDEX) == SET_MAP_RESULT_FAILED then
@@ -191,7 +193,8 @@ local function CalculateMeasurements(mapId, localX, localY)
             scaleY = scaleY,
             offsetX = offsetX,
             offsetY = offsetY,
-            mapIndex = mapIndex
+            mapIndex = mapIndex,
+            zoneIndex = zoneIndex
         }
     end
     return mapIndex
@@ -472,6 +475,22 @@ function lib:GetCurrentMapMeasurements()
         lib:CalculateMapMeasurements()
     end
     return mapMeasurements[mapId]
+end
+
+--- Returns the mapIndex and zoneIndex of the parent zone for the currently set map.
+--- return[1] integer - The mapIndex of the parent zone
+--- return[2] integer - The zoneIndex of the parent zone
+function lib:GetCurrentMapParentZoneIndicies()
+    local measurements = lib:GetCurrentMapMeasurements()
+    local mapIndex = measurements.mapIndex
+    if(not measurements.zoneIndex) then
+        lib:PushCurrentMap()
+        SetMapToMapListIndex(mapIndex)
+        measurements.zoneIndex = GetCurrentMapZoneIndex()
+        lib:PopCurrentMap()
+    end
+    local zoneIndex = measurements.zoneIndex
+    return mapIndex, zoneIndex
 end
 
 --- Calculates the measurements for the current map and all parent maps.
