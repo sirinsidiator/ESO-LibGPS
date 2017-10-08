@@ -2,6 +2,7 @@
 ## Author: sirinsidiator & votan
 ## Version: 2.0 rVERSION_NUMBER
 ## APIVersion: 100020 100021
+## AddonVersion: VERSION_NUMBER
 ## OptionalDependsOn: LibStub LibMapPing
 ##
 ## This Add-on is not created by, affiliated with or sponsored by ZeniMax Media Inc. or its affiliates. 
