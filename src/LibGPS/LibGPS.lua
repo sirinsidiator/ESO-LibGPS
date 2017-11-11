@@ -401,7 +401,7 @@ local function Initialize() -- wait until we have defined all functions
             if lib.debugMode then zo_callLater(function() LogMessage(LOG_WARNING, "There is a measure in progress before loading is completed.") end, 2000) end
             FinalizeMeasurement()
         end
-     end
+    end
 
     --- Register new Unload
     function lib:Unload()
@@ -622,13 +622,35 @@ function lib:SetPlayerChoseCurrentMap()
     CALLBACK_MANAGER = oldCALLBACK_MANAGER
 end
 
+--- Sets the best matching root map: Tamriel, Cold Harbour or Clockwork City and what ever will come.
+--- Returns SET_MAP_RESULT_FAILED, SET_MAP_RESULT_MAP_CHANGED depending on the result of the API calls.
+function lib:SetMapToRootMap(x, y)
+    local result = SET_MAP_RESULT_FAILED
+    for rootMapIndex, measurements in pairs(rootMaps) do
+        if (not measurements) then
+            measurements = GetExtraMapMeasurement(rootMapIndex)
+            rootMaps[rootMapIndex] = measurements
+            result = SET_MAP_RESULT_MAP_CHANGED
+        end
+        if (measurements) then
+            if (x > measurements.offsetX and x < (measurements.offsetX + measurements.scaleX) and
+                y > measurements.offsetY and y < (measurements.offsetY + measurements.scaleY)) then
+                if (orgSetMapToMapListIndex(rootMapIndex) ~= SET_MAP_RESULT_FAILED) then
+                    return SET_MAP_RESULT_MAP_CHANGED
+                end
+            end
+        end
+    end
+    return result
+end
+
 --- Repeatedly calls ProcessMapClick on the given global position starting on the Tamriel map until nothing more would happen.
 --- Returns SET_MAP_RESULT_FAILED, SET_MAP_RESULT_MAP_CHANGED or SET_MAP_RESULT_CURRENT_MAP_UNCHANGED depending on the result of the API calls.
 function lib:MapZoomInMax(x, y)
-    local result = SetMapToMapListIndex(TAMRIEL_MAP_INDEX)
+    local result = lib:SetMapToRootMap(x, y)
 
     if (result ~= SET_MAP_RESULT_FAILED) then
-        local localX, localY = x, y
+        local localX, localY = lib:GlobalToLocal(x, y)
 
         while WouldProcessMapClick(localX, localY) do
             result = orgProcessMapClick(localX, localY)
@@ -737,7 +759,7 @@ function lib:PopCurrentMap()
                 lib.panAndZoom:SetCurrentZoom(zoom)
                 lib.panAndZoom:SetCurrentOffset(offsetX, offsetY)
             end
-       end
+        end
     else
         result = SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
     end
