@@ -433,6 +433,9 @@ local function Initialize() -- wait until we have defined all functions
     end
     addRootMap(347) -- Coldhabour
     addRootMap(980) -- Clockwork City
+    if GetAPIVersion() >= 100023 then
+        addRootMap(1027) -- Artaeum
+    end
     -- Any future extra dimension map here
 
     SetMapToPlayerLocation() -- initial measurement so we can get back to where we are currently
