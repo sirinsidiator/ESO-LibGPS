@@ -1,7 +1,7 @@
 ## Title: LibGPS
 ## Author: sirinsidiator & votan
 ## Version: 2.0 rVERSION_NUMBER
-## APIVersion: 100021
+## APIVersion: 100024 100025
 ## AddonVersion: VERSION_NUMBER
 ## OptionalDependsOn: LibStub LibMapPing
 ##
