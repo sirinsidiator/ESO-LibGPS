@@ -136,7 +136,7 @@ function TamrielOMeter:InitializeSaveData()
     for id, data in pairs(self.savedMeasurements) do
         saveData.measurements[id] = data
     end
-    self.savedMeasurements = saveData
+    self.savedMeasurements = saveData.measurements
 
     LibGPS_Data = saveData
 end
