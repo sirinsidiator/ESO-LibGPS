@@ -1,3 +1,7 @@
+-- LibGPS3 & its files © sirinsidiator                          --
+-- Distributed under The Artistic License 2.0 (see LICENSE)     --
+------------------------------------------------------------------
+
 local LGPS = LibGPS
 local logger = LGPS.internal.logger
 
