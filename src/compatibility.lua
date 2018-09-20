@@ -89,8 +89,10 @@ function lib:ZoneToGlobal(mapIndex, x, y)
     return x, y, mapIndex
 end
 
+--- This function zooms and pans to the specified position on the active map.
+--- @deprecated use ZO_WorldMap_GetPanAndZoom():PanToNormalizedPosition(x, y) instead
 function lib:PanToMapPosition(x, y)
-    return LGPS:PanToMapPosition(x, y)
+    return ZO_WorldMap_GetPanAndZoom():PanToNormalizedPosition(x, y)
 end
 
 function lib:SetPlayerChoseCurrentMap()

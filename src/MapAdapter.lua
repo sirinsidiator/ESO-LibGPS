@@ -8,7 +8,6 @@ local original = internal.original
 local logger = internal.logger
 
 local TAMRIEL_MAP_INDEX = LGPS.internal.TAMRIEL_MAP_INDEX
-local DUMMY_PIN_TYPE = "LibGPSDummyPin"
 local MAP_PIN_TYPE_PLAYER_WAYPOINT = MAP_PIN_TYPE_PLAYER_WAYPOINT
 
 local MapAdapter = ZO_Object:Subclass()
@@ -27,22 +26,6 @@ function MapAdapter:Initialize()
 
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
-    self.mapPinManager = ZO_WorldMap_GetPinManager()
-    ZO_WorldMap_AddCustomPin(DUMMY_PIN_TYPE, function(pinManager) end , nil, { level = 0, size = 0, texture = "" })
-    ZO_WorldMap_SetCustomPinEnabled(_G[DUMMY_PIN_TYPE], false)
-end
-
-function MapAdapter:PanToMapPosition(x, y)
-    -- if we don't have access to the mapPinManager we cannot do anything
-    if (not self.mapPinManager) then return end
-    local mapPinManager = self.mapPinManager
-    -- create dummy pin
-    local pin = mapPinManager:CreatePin(_G[DUMMY_PIN_TYPE], "libgpsdummy", x, y)
-
-    self.panAndZoom:PanToPin(pin)
-
-    -- cleanup
-    mapPinManager:RemovePins(DUMMY_PIN_TYPE)
 end
 
 local function FakeZO_WorldMap_IsMapChangingAllowed() return true end
@@ -89,13 +72,6 @@ end
 
 function MapAdapter:SetCurrentOffset(offsetX, offsetY)
     return self.panAndZoom:SetCurrentOffset(offsetX, offsetY)
-end
-
--- There is no panAndZoom:GetCurrentOffset(), yet
-local function CalculateContainerAnchorOffsets() -- TODO test and destroy
-    local containerCenterX, containerCenterY = ZO_WorldMapContainer:GetCenter()
-    local scrollCenterX, scrollCenterY = ZO_WorldMapScroll:GetCenter()
-    return containerCenterX - scrollCenterX, containerCenterY - scrollCenterY
 end
 
 function MapAdapter:GetCurrentOffset()

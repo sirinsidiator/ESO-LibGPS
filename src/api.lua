@@ -85,11 +85,6 @@ function LGPS:GlobalToLocal(x, y)
     end
 end
 
---- This function zooms and pans to the specified position on the active map.
-function LGPS:PanToMapPosition(x, y)
-    return internal.adapter:PanToMapPosition(x, y)
-end
-
 --- This function sets the current map as player chosen so it won't switch back to the previous map.
 function LGPS:SetPlayerChoseCurrentMap()
     return internal.mapAdapter:SetPlayerChoseCurrentMap()
