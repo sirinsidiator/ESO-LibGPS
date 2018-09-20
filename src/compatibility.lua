@@ -2,7 +2,7 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local MAJOR, MINOR = "LibGPS2", 16
+local MAJOR, MINOR = "LibGPS2", 17
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 assert(lib, "LibGPS2 compatibility layer was loaded more than once. Please ensure that its files are not included from other addons.")
 
@@ -33,6 +33,13 @@ if (lib.Unload) then
         end
     end
 end
+
+lib.LIB_EVENT_STATE_CHANGED = LGPS.LIB_EVENT_STATE_CHANGED
+-- propagate the callback in case someone registered to the old handle name
+local OLD_LIB_EVENT_STATE_CHANGED = "OnLibGPS2MeasurementChanged"
+CALLBACK_MANAGER:RegisterCallback(LGPS.LIB_EVENT_STATE_CHANGED, function(measuring)
+    CALLBACK_MANAGER:FireCallbacks(OLD_LIB_EVENT_STATE_CHANGED, measuring)
+end)
 
 function lib:IsReady()
     return LGPS:IsReady()
