@@ -50,7 +50,7 @@ function LGPS:GetCurrentMapParentZoneIndices()
     if(zoneId == 0) then
         mapStack:Push()
         SetMapToMapListIndex(mapIndex)
-        zoneId = internal.adapter:GetCurrentZoneId()
+        zoneId = internal.mapAdapter:GetCurrentZoneId()
         measurement:SetZoneId(zoneId)
         mapStack:Pop()
     end
@@ -92,7 +92,7 @@ end
 
 --- This function sets the current map as player chosen so it won't switch back to the previous map.
 function LGPS:SetPlayerChoseCurrentMap()
-    return internal.adapter:SetPlayerChoseCurrentMap()
+    return internal.mapAdapter:SetPlayerChoseCurrentMap()
 end
 
 --- Sets the best matching root map: Tamriel, Cold Harbour or Clockwork City and what ever will come.

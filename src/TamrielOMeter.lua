@@ -193,10 +193,10 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
 
         if(mapIndex ~= rootMapIndex) then
             local name = internal.mapAdapter:GetFormattedMapName(rootMapIndex)
-            logger:Warn(string.foramt("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex))
+            logger:Warn(string.format("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex))
 
             if(not measurement) then
-                logger:Warn(string.foramt("Failed to measure %s map.", name))
+                logger:Warn(string.format("Failed to measure %s map.", name))
                 return
             end
         end
