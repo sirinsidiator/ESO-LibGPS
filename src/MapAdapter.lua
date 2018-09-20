@@ -3,12 +3,9 @@
 ------------------------------------------------------------------
 
 local LGPS = LibGPS
-local internal = LGPS.internal
-local original = internal.original
-local logger = internal.logger
 
-local TAMRIEL_MAP_INDEX = LGPS.internal.TAMRIEL_MAP_INDEX
-local MAP_PIN_TYPE_PLAYER_WAYPOINT = MAP_PIN_TYPE_PLAYER_WAYPOINT
+local internal = LGPS.internal
+local logger = internal.logger
 
 local MapAdapter = ZO_Object:Subclass()
 LGPS.class.MapAdapter = MapAdapter
@@ -20,12 +17,42 @@ function MapAdapter:New(...)
 end
 
 function MapAdapter:Initialize()
-    self.LMP = LibStub("LibMapPing")
-    self.stack = {}
-    self.suppressCount = 0
-
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
+    self.original = {}
+    self:HookSetMapToFunction("SetMapToQuestCondition")
+    self:HookSetMapToFunction("SetMapToQuestStepEnding")
+    self:HookSetMapToFunction("SetMapToQuestZone")
+    self:HookSetMapToFunction("SetMapToMapListIndex")
+    self:HookSetMapToFunction("SetMapToPlayerLocation")
+    self:HookSetMapToFunction("ProcessMapClick", true, true) -- Returning is done via clicking already
+    self:HookSetMapToFunction("SetMapFloor", true)
+end
+
+function MapAdapter:SetWaypointManager(waypointManager)
+    self.waypointManager = waypointManager
+end
+
+function MapAdapter:HookSetMapToFunction(funcName, returnToInitialMap, skipSecondCall)
+    local orgFunction = _G[funcName]
+    self.original[funcName] = orgFunction
+    _G[funcName] = function(...)
+        local result = orgFunction(...)
+        if(result ~= SET_MAP_RESULT_MAP_FAILED and not LGPS:GetCurrentMapMeasurements()) then
+            logger:Debug(funcName)
+
+            local success, mapResult = LGPS:CalculateMapMeasurements(returnToInitialMap)
+            if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
+                result = mapResult
+            end
+
+            if(skipSecondCall) then return end
+            orgFunction(...)
+        end
+
+        -- All stuff is done before anyone triggers an "OnWorldMapChanged" event due to this result
+        return result
+    end
 end
 
 local function FakeZO_WorldMap_IsMapChangingAllowed() return true end
@@ -80,48 +107,8 @@ function MapAdapter:GetCurrentOffset()
     return anchor:GetOffsetX(), anchor:GetOffsetY()
 end
 
-function MapAdapter:SetMeasurementWaypoint(x, y)
-    -- this waypoint stays invisible for others
-    self.suppressCount = self.suppressCount + 1
-    self.LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-    self.LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
-end
-
-function MapAdapter:UnsuppressWaypoint()
-    while self.suppressCount > 0 do
-        self.LMP:UnsuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-        self.suppressCount = self.suppressCount - 1
-    end
-end
-
-function MapAdapter:RefreshWaypointPin()
-    self.LMP:RefreshMapPin(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-end
-
 function MapAdapter:GetPlayerPosition()
     return GetMapPlayerPosition("player")
-end
-
-function MapAdapter:GetPlayerWaypoint()
-    return self.LMP:GetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-end
-
-function MapAdapter:SetPlayerWaypoint(x, y)
-    self.LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
-end
-
-function MapAdapter:HasPlayerWaypoint()
-    return self.LMP:HasMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-end
-
-function MapAdapter:RemovePlayerWaypoint()
-    self.LMP:RemoveMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-end
-
-function MapAdapter:GetReferencePoints()
-    local x1, y1 = self:GetPlayerPosition()
-    local x2, y2 = self:GetPlayerWaypoint()
-    return x1, y1, x2, y2
 end
 
 function MapAdapter:GetCurrentMapIndex()
@@ -136,9 +123,16 @@ function MapAdapter:GetCurrentMapIdentifier()
     return GetMapTileTexture()
 end
 
+function MapAdapter:GetMapFloorInfo()
+    return GetMapFloorInfo()
+end
+
+function MapAdapter:IsCurrentMapPlayerLocation()
+    return DoesCurrentMapMatchMapForPlayerLocation()
+end
+
 function MapAdapter:GetFormattedMapName(mapIndex)
-    local name = GetMapInfo(mapIndex)
-    return zo_strformat("<<C:1>>", name)
+    return zo_strformat("<<C:1>>", GetMapNameByIndex(mapIndex))
 end
 
 function MapAdapter:IsCurrentMapZoneMap()
@@ -149,15 +143,22 @@ function MapAdapter:IsCurrentMapCosmicMap()
     return GetMapType() == MAPTYPE_COSMIC
 end
 
-function MapAdapter:TryZoomOut()
-    return MapZoomOut() == SET_MAP_RESULT_MAP_CHANGED
+function MapAdapter:MapZoomOut()
+    return MapZoomOut()
 end
 
-function MapAdapter:TrySwitchToWorldMap()
-    return original.SetMapToMapListIndex(TAMRIEL_MAP_INDEX) ~= SET_MAP_RESULT_FAILED
+function MapAdapter:SetMapToPlayerLocationWithoutMeasuring()
+    return self.original.SetMapToPlayerLocation()
 end
 
-function MapAdapter:RegisterPingHandler(callback)
-    self.LMP:RegisterCallback("AfterPingAdded", callback)
-    self.LMP:RegisterCallback("AfterPingRemoved", callback)
+function MapAdapter:SetMapToMapListIndexWithoutMeasuring(mapIndex)
+    return self.original.SetMapToMapListIndex(mapIndex)
+end
+
+function MapAdapter:ProcessMapClickWithoutMeasuring(x, y)
+    return self.original.ProcessMapClick(x, y)
+end
+
+function MapAdapter:SetMapFloorWithoutMeasuring(currentMapFloor)
+    return self.original.ProcessMapClick(currentMapFloor)
 end

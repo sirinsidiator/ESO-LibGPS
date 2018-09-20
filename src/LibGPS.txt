@@ -14,8 +14,8 @@
 
 StartUp.lua
 Measurement.lua
-MapAdapter.lua
 MapStack.lua
+MapAdapter.lua
 TamrielOMeter.lua
 WaypointManager.lua
 api.lua

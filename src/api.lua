@@ -4,10 +4,7 @@
 
 local LGPS = LibGPS
 local internal = LGPS.internal
-local original = internal.original
 local logger = internal.logger
-
-local mapStack = LGPS.class.MapStack:New()
 
 --- Returns true as long as the player exists.
 function LGPS:IsReady()
@@ -48,11 +45,11 @@ function LGPS:GetCurrentMapParentZoneIndices()
     local zoneId = measurement:GetZoneId()
 
     if(zoneId == 0) then
-        mapStack:Push()
+        internal.meter:PushCurrentMap()
         SetMapToMapListIndex(mapIndex)
         zoneId = internal.mapAdapter:GetCurrentZoneId()
         measurement:SetZoneId(zoneId)
-        mapStack:Pop()
+        internal.meter:PopCurrentMap()
     end
 
     local zoneIndex = GetZoneIndex(zoneId)
@@ -96,7 +93,7 @@ function LGPS:SetMapToRootMap(x, y)
     local measurement = internal.meter:FindRootMapMeasurementForCoordinates(x, y)
     if(not measurement) then return SET_MAP_RESULT_FAILED end
 
-    return original.SetMapToMapListIndex(measurement:GetMapIndex())
+    return internal.mapAdapter:SetMapToMapListIndexWithoutMeasuring(measurement:GetMapIndex())
 end
 
 --- Repeatedly calls ProcessMapClick on the given global position starting on the Tamriel map until nothing more would happen.
@@ -108,7 +105,7 @@ function LGPS:MapZoomInMax(x, y)
         local localX, localY = LGPS:GlobalToLocal(x, y)
 
         while WouldProcessMapClick(localX, localY) do
-            result = original.ProcessMapClick(localX, localY)
+            result = internal.mapAdapter:ProcessMapClickWithoutMeasuring(localX, localY)
             if (result == SET_MAP_RESULT_FAILED) then break end
             localX, localY = LGPS:GlobalToLocal(x, y)
         end
@@ -119,11 +116,11 @@ end
 
 --- Stores information about how we can back to this map on a stack.
 function LGPS:PushCurrentMap()
-    mapStack:Push()
+    internal.meter:PushCurrentMap()
 end
 
 --- Switches to the map that was put on the stack last.
 --- Returns SET_MAP_RESULT_FAILED, SET_MAP_RESULT_MAP_CHANGED or SET_MAP_RESULT_CURRENT_MAP_UNCHANGED depending on the result of the API calls.
 function LGPS:PopCurrentMap()
-    return mapStack:Pop()
+    return internal.meter:PopCurrentMap()
 end

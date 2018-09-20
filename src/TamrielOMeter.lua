@@ -3,15 +3,19 @@
 ------------------------------------------------------------------
 
 local LGPS = LibGPS
-local internal = LGPS.internal
-local original = internal.original
-local logger = internal.logger
 local Measurement = LGPS.class.Measurement
-local TAMRIEL_MAP_INDEX = LGPS.internal.TAMRIEL_MAP_INDEX
+local MapStack = LGPS.class.MapStack
+
+local internal = LGPS.internal
+local logger = internal.logger
+local sformat = string.format
 local mabs = math.abs
 
+local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
+local SCALE_INACCURACY_WARNING_THRESHOLD = 1e-3
 local POSITION_MIN = 0.085
 local POSITION_MAX = 0.915
+local MAP_CENTER = 0.5
 
 local TamrielOMeter = ZO_Object:Subclass()
 LGPS.class.TamrielOMeter = TamrielOMeter
@@ -22,11 +26,64 @@ function TamrielOMeter:New(...)
     return object
 end
 
-function TamrielOMeter:Initialize()
+function TamrielOMeter:Initialize(adapter)
+    self.adapter = adapter
+    self.mapStack = MapStack:New(self, adapter)
     self.measurements = {}
     self.savedMeasurements = {}
     self.rootMaps = {}
     self.measuring = false
+
+    self:RegisterRootMap(TAMRIEL_MAP_INDEX) -- Tamriel
+    self:RegisterRootMap(GetMapIndexByZoneId(347)) -- Coldhabour
+    self:RegisterRootMap(GetMapIndexByZoneId(980)) -- Clockwork City
+    self:RegisterRootMap(GetMapIndexByZoneId(1027)) -- Artaeum
+    -- Any future extra dimensional map here
+end
+
+function TamrielOMeter:InitializeSaveData()
+    local saveData = LibGPS_Data
+
+    if(not saveData or saveData.version ~= GetAPIVersion()) then
+        logger:Info("Creating new saveData")
+        saveData = {
+            version = GetAPIVersion(),
+            measurements = {}
+        }
+    end
+
+    for id, data in pairs(self.savedMeasurements) do
+        saveData.measurements[id] = data
+    end
+    self.savedMeasurements = saveData.measurements
+
+    LibGPS_Data = saveData
+    internal.saveData = saveData
+end
+
+function TamrielOMeter:Reset()
+    logger:Info("Removing all measurements")
+    ZO_ClearTable(self.measurements)
+    ZO_ClearTable(self.savedMeasurements)
+
+    local tamrielMeasurement = self.rootMaps[TAMRIEL_MAP_INDEX]
+    for rootMapIndex, measurement in pairs(self.rootMaps) do
+        self.rootMaps[rootMapIndex] = false
+    end
+    self:SetMeasurement(tamrielMeasurement, true)
+end
+
+function TamrielOMeter:SetWaypointManager(waypointManager)
+    self.waypointManager = waypointManager
+end
+
+function TamrielOMeter:RegisterRootMap(mapIndex)
+    logger:Debug("Register root map " .. self.adapter:GetFormattedMapName(mapIndex))
+    self.rootMaps[mapIndex] = false
+end
+
+function TamrielOMeter:GetRootMapMeasurement(mapIndex)
+    return self.rootMaps[mapIndex]
 end
 
 function TamrielOMeter:GetMeasurement(id)
@@ -46,115 +103,26 @@ function TamrielOMeter:SetMeasurement(measurement, isRootMap)
     end
 end
 
-function TamrielOMeter:RegisterRootMap(mapIndex)
-    logger:Debug("Register root map " .. GetMapNameByIndex(mapIndex))
-    self.rootMaps[mapIndex] = false
+function TamrielOMeter:SetMeasuring(measuring)
+    local changed = (self.measuring ~= measuring)
+    self.measuring = measuring
+    if(changed) then
+        CALLBACK_MANAGER:FireCallbacks(LGPS.LIB_EVENT_STATE_CHANGED, measuring)
+    end
 end
 
-function TamrielOMeter:GetRootMapMeasurement(mapIndex)
-    return self.rootMaps[mapIndex]
+function TamrielOMeter:IsMeasuring()
+    return self.measuring
 end
 
-function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
-    local adapter = internal.mapAdapter
-
-    -- select the map corner farthest from the player position
-    local wpX, wpY = POSITION_MIN, POSITION_MIN
-    -- on some maps we cannot set the waypoint to the map border (e.g. Aurdion)
-    -- Opposite corner:
-    if(localX < 0.5) then wpX = POSITION_MAX end
-    if(localY < 0.5) then wpY = POSITION_MAX end
-
-    adapter:SetMeasurementWaypoint(wpX, wpY)
-
-    -- add local points to seen maps
-    local measurementPositions = {}
-    measurementPositions[#measurementPositions + 1] = { mapId = mapId, pX = localX, pY = localY, wpX = wpX, wpY = wpY, rootMap = false }
-
-    -- switch to zone map in order to get the mapIndex for the current location
-    local x1, y1, x2, y2
-    while not adapter:IsCurrentMapZoneMap() do
-        if(not adapter:TryZoomOut()) then break end
-        -- collect measurements for all maps we come through on our way to the zone map
-        x1, y1, x2, y2 = adapter:GetReferencePoints()
-        measurementPositions[#measurementPositions + 1] = { mapId = adapter:GetCurrentMapIdentifier(), pX = x1, pY = y1, wpX = x2, wpY = y2, rootMap = false }
-    end
-
-    -- some non-zone maps like Eyevea zoom directly to the Tamriel map
-    local mapIndex = adapter:GetCurrentMapIndex()
-    measurementPositions[#measurementPositions].rootMap = (self.rootMaps[mapIndex] ~= nil)
-    if(mapIndex == nil) then mapIndex = TAMRIEL_MAP_INDEX end
-    local zoneId = adapter:GetCurrentZoneId()
-
-    -- switch to world map so we can calculate the global map scale and offset
-    if(not adapter:TrySwitchToWorldMap()) then
-        -- failed to switch to the world map
-        logger:Warn("Could not switch to world map")
-        return
-    end
-
-    -- get the two reference points on the world map
-    x1, y1, x2, y2 = adapter:GetReferencePoints()
-
-    -- calculate scale and offset for all maps that we saw
-    local scaleX, scaleY, offsetX, offsetY
-    for i = 1, #measurementPositions do
-        local pos = measurementPositions[i]
-        if(self:GetMeasurement(pos.mapId)) then break end -- we always go up in the hierarchy so we can stop once a measurement already exists
-        logger:Debug("Store map measurement for " .. pos.mapId:sub(10, -7))
-        scaleX = (x2 - x1) / (pos.wpX - pos.pX)
-        scaleY = (y2 - y1) / (pos.wpY - pos.pY)
-        offsetX = x1 - pos.pX * scaleX
-        offsetY = y1 - pos.pY * scaleY
-        if(mabs(scaleX - scaleY) > 1e-3) then
-            logger:Warn(zo_strjoin(" ", "Current map measurement might be wrong", pos.mapId:sub(10, -7), mapIndex, pos.pX, pos.pY, pos.wpX, pos.wpY, x1, y1, x2, y2, offsetX, offsetY, scaleX, scaleY))
-        end
-
-        -- store measurements
-        local measurement = self:GetMeasurement(pos.mapId) or Measurement:New()
-        measurement:SetId(pos.mapId)
-        measurement:SetMapIndex(mapIndex)
-        measurement:SetZoneId(zoneId)
-        measurement:SetScale(scaleX, scaleY)
-        measurement:SetOffset(offsetX, offsetY)
-        self:SetMeasurement(measurement, pos.rootMap)
-    end
-
-    return mapIndex
-end
-
-function TamrielOMeter:InitializeSaveData()
-    local saveData = LibGPS_Data
-
-    if(not saveData or saveData.version ~= GetAPIVersion()) then
-        saveData = {
-            version = GetAPIVersion(),
-            measurements = {}
-        }
-    end
-
-    for id, data in pairs(self.savedMeasurements) do
-        saveData.measurements[id] = data
-    end
-    self.savedMeasurements = saveData.measurements
-
-    LibGPS_Data = saveData
-end
-
-function TamrielOMeter:Reset()
-    logger:Info("Removing all measurements")
-    ZO_ClearTable(self.measurements)
-    ZO_ClearTable(self.savedMeasurements)
-
-    local tamrielMeasurement = self.rootMaps[TAMRIEL_MAP_INDEX]
-    for rootMapIndex, measurement in pairs(self.rootMaps) do
-        self.rootMaps[rootMapIndex] = false
-    end
-    self:SetMeasurement(tamrielMeasurement, true)
+function TamrielOMeter:GetReferencePoints()
+    local x1, y1 = self.adapter:GetPlayerPosition()
+    local x2, y2 = self.waypointManager:GetPlayerWaypoint()
+    return x1, y1, x2, y2
 end
 
 function TamrielOMeter:ClearCurrentMapMeasurements()
-    local mapId = internal.mapAdapter:GetCurrentMapIdentifier()
+    local mapId = self.adapter:GetCurrentMapIdentifier()
     local measurement = self:GetMeasurement(mapId)
 
     if(measurement and measurement.mapIndex ~= TAMRIEL_MAP_INDEX) then
@@ -166,7 +134,7 @@ function TamrielOMeter:ClearCurrentMapMeasurements()
 end
 
 function TamrielOMeter:GetCurrentMapMeasurements()
-    local mapId = internal.mapAdapter:GetCurrentMapIdentifier()
+    local mapId = self.adapter:GetCurrentMapIdentifier()
     local measurement = self:GetMeasurement(mapId)
 
     if (not measurement) then
@@ -179,24 +147,24 @@ end
 
 function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
     -- switch to the map
-    if(original.SetMapToMapListIndex(rootMapIndex) == SET_MAP_RESULT_FAILED) then
-        logger:Warn(string.format("Could not switch to root map with index %d", rootMapIndex))
+    if(self.adapter:SetMapToMapListIndexWithoutMeasuring(rootMapIndex) == SET_MAP_RESULT_FAILED) then
+        logger:Warn(sformat("Could not switch to root map with index %d", rootMapIndex))
         return
     end
 
-    local rootMapId = internal.mapAdapter:GetCurrentMapIdentifier()
+    local rootMapId = self.adapter:GetCurrentMapIdentifier()
     local measurement = self:GetMeasurement(rootMapId)
     if(not measurement) then
         -- calculate the measurements of map without worrying about the waypoint
-        local mapIndex = self:CalculateMeasurementsInternal(rootMapId, internal.mapAdapter:GetPlayerPosition())
+        local mapIndex = self:CalculateMeasurementsInternal(rootMapId, self.adapter:GetPlayerPosition())
         measurement = self.measurements[rootMapId]
 
         if(mapIndex ~= rootMapIndex) then
-            local name = internal.mapAdapter:GetFormattedMapName(rootMapIndex)
-            logger:Warn(string.format("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex))
+            local name = self.adapter:GetFormattedMapName(rootMapIndex)
+            logger:Warn(sformat("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex))
 
             if(not measurement) then
-                logger:Warn(string.format("Failed to measure %s map.", name))
+                logger:Warn(sformat("Failed to measure %s map.", name))
                 return
             end
         end
@@ -206,7 +174,7 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
 end
 
 function TamrielOMeter:CalculateMapMeasurements(returnToInitialMap)
-    local adapter = internal.mapAdapter
+    local adapter = self.adapter
 
     -- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
     if(adapter:IsCurrentMapCosmicMap()) then return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED end
@@ -231,54 +199,117 @@ function TamrielOMeter:CalculateMapMeasurements(returnToInitialMap)
     -- check some facts about the current map, so we can reset it later
     -- local oldMapIsZoneMap, oldMapFloor, oldMapFloorCount
     if(returnToInitialMap) then
-        internal.mapStack:Push()
+        self:PushCurrentMap()
     end
 
-    local hasWaypoint = adapter:HasPlayerWaypoint()
-    if(hasWaypoint) then internal.waypointManager:Store() end
+    local waypointManager = self.waypointManager
+    local hasWaypoint = waypointManager:HasPlayerWaypoint()
+    if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
 
     local mapIndex = self:CalculateMeasurementsInternal(mapId, localX, localY)
 
     -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
     if(hasWaypoint) then
-        internal.waypointManager:Restore()
+        waypointManager:RestorePlayerWaypoint()
     else
-        adapter:RemovePlayerWaypoint()
+        waypointManager:RemovePlayerWaypoint()
     end
 
     if(returnToInitialMap) then
-        local result = internal.mapStack:Pop()
+        local result = self:PopCurrentMap()
         return true, result
     end
 
     return true, (mapId == adapter:GetCurrentMapIdentifier()) and SET_MAP_RESULT_CURRENT_MAP_UNCHANGED or SET_MAP_RESULT_MAP_CHANGED
 end
 
-function TamrielOMeter:SetMeasuring(measuring)
-    local changed = (self.measuring ~= measuring)
-    self.measuring = measuring
-    if(changed) then
-        CALLBACK_MANAGER:FireCallbacks(LGPS.LIB_EVENT_STATE_CHANGED, measuring)
-    end
-end
+function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
+    local adapter = self.adapter
 
-function TamrielOMeter:IsMeasuring()
-    return self.measuring
+    -- select the map corner farthest from the player position
+    local wpX, wpY = POSITION_MIN, POSITION_MIN
+    -- on some maps we cannot set the waypoint to the map border (e.g. Aurdion)
+    -- Opposite corner:
+    if(localX < MAP_CENTER) then wpX = POSITION_MAX end
+    if(localY < MAP_CENTER) then wpY = POSITION_MAX end
+
+    self.waypointManager:SetMeasurementWaypoint(wpX, wpY)
+
+    -- add local points to seen maps
+    local measurementPositions = {}
+    measurementPositions[#measurementPositions + 1] = { mapId = mapId, pX = localX, pY = localY, wpX = wpX, wpY = wpY, rootMap = false }
+
+    -- switch to zone map in order to get the mapIndex for the current location
+    local x1, y1, x2, y2
+    while not adapter:IsCurrentMapZoneMap() do
+        if(adapter:MapZoomOut() ~= SET_MAP_RESULT_MAP_CHANGED) then break end
+        -- collect measurements for all maps we come through on our way to the zone map
+        x1, y1, x2, y2 = self:GetReferencePoints()
+        measurementPositions[#measurementPositions + 1] = { mapId = adapter:GetCurrentMapIdentifier(), pX = x1, pY = y1, wpX = x2, wpY = y2, rootMap = false }
+    end
+
+    -- some non-zone maps like Eyevea zoom directly to the Tamriel map
+    local mapIndex = adapter:GetCurrentMapIndex()
+    measurementPositions[#measurementPositions].rootMap = (self.rootMaps[mapIndex] ~= nil)
+    if(mapIndex == nil) then mapIndex = TAMRIEL_MAP_INDEX end
+    local zoneId = adapter:GetCurrentZoneId()
+
+    -- switch to world map so we can calculate the global map scale and offset
+    if(adapter:SetMapToMapListIndexWithoutMeasuring(TAMRIEL_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
+        -- failed to switch to the world map
+        logger:Warn("Could not switch to world map")
+        return
+    end
+
+    -- get the two reference points on the world map
+    x1, y1, x2, y2 = self:GetReferencePoints()
+
+    -- calculate scale and offset for all maps that we saw
+    local scaleX, scaleY, offsetX, offsetY
+    for i = 1, #measurementPositions do
+        local pos = measurementPositions[i]
+        if(self:GetMeasurement(pos.mapId)) then break end -- we always go up in the hierarchy so we can stop once a measurement already exists
+        logger:Debug("Store map measurement for " .. pos.mapId:sub(10, -7))
+        scaleX = (x2 - x1) / (pos.wpX - pos.pX)
+        scaleY = (y2 - y1) / (pos.wpY - pos.pY)
+        offsetX = x1 - pos.pX * scaleX
+        offsetY = y1 - pos.pY * scaleY
+        if(mabs(scaleX - scaleY) > SCALE_INACCURACY_WARNING_THRESHOLD) then
+            logger:Warn(zo_strjoin(" ", "Current map measurement might be wrong", pos.mapId:sub(10, -7), mapIndex, pos.pX, pos.pY, pos.wpX, pos.wpY, x1, y1, x2, y2, offsetX, offsetY, scaleX, scaleY))
+        end
+
+        -- store measurements
+        local measurement = self:GetMeasurement(pos.mapId) or Measurement:New()
+        measurement:SetId(pos.mapId)
+        measurement:SetMapIndex(mapIndex)
+        measurement:SetZoneId(zoneId)
+        measurement:SetScale(scaleX, scaleY)
+        measurement:SetOffset(offsetX, offsetY)
+        self:SetMeasurement(measurement, pos.rootMap)
+    end
+
+    return mapIndex
 end
 
 function TamrielOMeter:FindRootMapMeasurementForCoordinates(x, y)
     logger:Debug("FindRootMapMeasurementForCoordinates(" .. x .. ", " .. y .. ")")
     for rootMapIndex, measurement in pairs(self.rootMaps) do
-        logger:Debug(GetMapNameByIndex(rootMapIndex))
         if(not measurement) then
-            logger:Debug("no measurement found")
             measurement = self:TryCalculateRootMapMeasurement(rootMapIndex)
         end
 
-        logger:Debug("measurement found: " .. tostring(measurement ~= nil))
         if(measurement and measurement:Contains(x, y)) then
-            logger:Debug("was inside")
+            logger:Debug("Point is inside " .. self.adapter:GetFormattedMapName(rootMapIndex))
             return measurement
         end
     end
+    logger:Warn("No matching root map found for coordinates (" .. x .. ", " .. y .. ")")
+end
+
+function TamrielOMeter:PushCurrentMap()
+    return self.mapStack:Push()
+end
+
+function TamrielOMeter:PopCurrentMap()
+    return self.mapStack:Pop()
 end
