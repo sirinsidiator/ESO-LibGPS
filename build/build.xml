@@ -58,9 +58,9 @@
             </fileset>
         </copy>
 
-        <replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="@VERSION_NUMBER@" value="${finalVersion}" />
-        <replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="@API_VERSION@" value="${eso.api}" />
-        <replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="development.lua" value="" encoding="UTF-8" />
+        <replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="@VERSION_NUMBER@" value="${finalVersion}" encoding="UTF-8" />
+        <replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="@ADDON_VERSION@" value="${finalVersion}" encoding="UTF-8" />
+        <replace file="${tempdir}/${ant.project.name}/${ant.project.name}.txt" token="@API_VERSION@" value="${eso.api}" encoding="UTF-8" />
         <replace file="${tempdir}/${ant.project.name}/StartUp.lua" token="_LGPS_VERSION_NUMBER or -1" value="${finalVersion}" encoding="UTF-8" />
 
         <zip destfile="${targetdir}/${ant.project.name}${version}_r${fileVersion}.zip">
