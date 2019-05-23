@@ -12,6 +12,7 @@ _G[LIB_IDENTIFIER] = lib
 lib.internal = {
     class = {},
     logger = LibDebugLogger(LIB_IDENTIFIER),
+    chat = LibChatMessage(LIB_IDENTIFIER, "LGPS"),
     TAMRIEL_MAP_INDEX = 1,
 }
 
@@ -53,7 +54,7 @@ function lib.internal:Initialize()
 
     SLASH_COMMANDS["/libgpsreset"] = function()
         meter:Reset()
-        d("All LibGPS measurements have been cleared")
+        self.chat:Print("All measurements have been cleared")
     end
 
     logger:Debug("Initialization complete")

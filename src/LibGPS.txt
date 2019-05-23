@@ -3,7 +3,7 @@
 ## Version: 3.0 r@VERSION_NUMBER@
 ## AddOnVersion: @ADDON_VERSION@
 ## APIVersion: @API_VERSION@
-## DependsOn: LibMapPing LibDebugLogger
+## DependsOn: LibMapPing LibDebugLogger LibChatMessage
 ## OptionalDependsOn: LibStub
 ## SavedVariables: LibGPS_Data
 ##
