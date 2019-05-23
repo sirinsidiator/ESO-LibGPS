@@ -77,22 +77,12 @@ function MapAdapter:SetPlayerChoseCurrentMap() -- TODO: investigate if there is 
     CALLBACK_MANAGER = oldCALLBACK_MANAGER
 end
 
-if(GetAPIVersion() >= 100025) then -- TODO remove
-    function MapAdapter:SetCurrentZoom(zoom)
-        return self.panAndZoom:SetCurrentNormalizedZoom(zoom)
-    end
+function MapAdapter:SetCurrentZoom(zoom)
+    return self.panAndZoom:SetCurrentNormalizedZoom(zoom)
+end
 
-    function MapAdapter:GetCurrentZoom()
-        return self.panAndZoom:GetCurrentNormalizedZoom()
-    end
-else
-    function MapAdapter:SetCurrentZoom(zoom)
-        return self.panAndZoom:SetCurrentZoom(zoom)
-    end
-
-    function MapAdapter:GetCurrentZoom()
-        return self.panAndZoom:GetCurrentZoom()
-    end
+function MapAdapter:GetCurrentZoom()
+    return self.panAndZoom:GetCurrentNormalizedZoom()
 end
 
 function MapAdapter:SetCurrentOffset(offsetX, offsetY)
