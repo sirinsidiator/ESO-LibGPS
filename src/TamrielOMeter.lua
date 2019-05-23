@@ -8,7 +8,6 @@ local Measurement = internal.class.Measurement
 local MapStack = internal.class.MapStack
 
 local logger = internal.logger
-local sformat = string.format
 local mabs = math.abs
 
 local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
@@ -78,7 +77,7 @@ function TamrielOMeter:SetWaypointManager(waypointManager)
 end
 
 function TamrielOMeter:RegisterRootMap(mapIndex)
-    logger:Debug("Register root map " .. self.adapter:GetFormattedMapName(mapIndex))
+    logger:Debug("Register root map", self.adapter:GetFormattedMapName(mapIndex))
     self.rootMaps[mapIndex] = false
 end
 
@@ -148,7 +147,7 @@ end
 function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
     -- switch to the map
     if(self.adapter:SetMapToMapListIndexWithoutMeasuring(rootMapIndex) == SET_MAP_RESULT_FAILED) then
-        logger:Warn(sformat("Could not switch to root map with index %d", rootMapIndex))
+        logger:Warn("Could not switch to root map with index %d", rootMapIndex)
         return
     end
 
@@ -161,10 +160,10 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
 
         if(mapIndex ~= rootMapIndex) then
             local name = self.adapter:GetFormattedMapName(rootMapIndex)
-            logger:Warn(sformat("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex))
+            logger:Warn("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex)
 
             if(not measurement) then
-                logger:Warn(sformat("Failed to measure %s map.", name))
+                logger:Warn("Failed to measure %s map.", name)
                 return
             end
         end
@@ -190,7 +189,7 @@ function TamrielOMeter:CalculateMapMeasurements(returnToInitialMap)
         return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
     end
 
-    logger:Debug("CalculateMapMeasurements for " .. mapId)
+    logger:Debug("CalculateMapMeasurements for", mapId)
 
     returnToInitialMap = (returnToInitialMap ~= false)
 
@@ -275,7 +274,7 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
         offsetX = x1 - pos.pX * scaleX
         offsetY = y1 - pos.pY * scaleY
         if(mabs(scaleX - scaleY) > SCALE_INACCURACY_WARNING_THRESHOLD) then
-            logger:Warn(zo_strjoin(" ", "Current map measurement might be wrong", pos.mapId:sub(10, -7), mapIndex, pos.pX, pos.pY, pos.wpX, pos.wpY, x1, y1, x2, y2, offsetX, offsetY, scaleX, scaleY))
+            logger:Warn("Current map measurement might be wrong", pos.mapId:sub(10, -7), mapIndex, pos.pX, pos.pY, pos.wpX, pos.wpY, x1, y1, x2, y2, offsetX, offsetY, scaleX, scaleY)
         end
 
         -- store measurements
@@ -292,7 +291,7 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
 end
 
 function TamrielOMeter:FindRootMapMeasurementForCoordinates(x, y)
-    logger:Debug("FindRootMapMeasurementForCoordinates(" .. x .. ", " .. y .. ")")
+    logger:Debug("FindRootMapMeasurementForCoordinates(%f, %f)", x, y)
     for rootMapIndex, measurement in pairs(self.rootMaps) do
         if(not measurement) then
             measurement = self:TryCalculateRootMapMeasurement(rootMapIndex)
@@ -303,7 +302,7 @@ function TamrielOMeter:FindRootMapMeasurementForCoordinates(x, y)
             return measurement
         end
     end
-    logger:Warn("No matching root map found for coordinates (" .. x .. ", " .. y .. ")")
+    logger:Warn("No matching root map found for coordinates (%f, %f)", x, y)
 end
 
 function TamrielOMeter:PushCurrentMap()

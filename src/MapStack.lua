@@ -66,11 +66,11 @@ function MapStack:Pop()
         result = adapter:SetMapToMapListIndexWithoutMeasuring(currentMapIndex)
 
     else -- here is where it gets tricky
-        logger:Debug("Try to navigate back to " .. targetMapTileTexture)
+        logger:Debug("Try to navigate back to", targetMapTileTexture)
         -- first we try to get more information about our target map
         local target = meter:GetMeasurement(targetMapTileTexture)
         if(not target) then -- always just return to player map if we cannot restore the previous map.
-            logger:Debug(string.format("No measurement for \"%s\". Returning to player location.", targetMapTileTexture))
+            logger:Debug("No measurement for \"%s\". Returning to player location.", targetMapTileTexture)
             return adapter:SetMapToPlayerLocationWithoutMeasuring()
         end
 
@@ -79,20 +79,20 @@ function MapStack:Pop()
             local x, y = target:GetCenter()
             rootMap = meter:FindRootMapMeasurementForCoordinates(x, y)
             if(not rootMap) then
-                logger:Debug(string.format("No root map found for \"%s\". Returning to player location.", target:GetId()))
+                logger:Debug("No root map found for \"%s\". Returning to player location.", target:GetId())
                 return adapter:SetMapToPlayerLocationWithoutMeasuring()
             end
         end
 
         -- switch to the parent zone
-        logger:Debug("switch to the parent zone " .. adapter:GetFormattedMapName(rootMap:GetMapIndex()))
+        logger:Debug("switch to the parent zone", adapter:GetFormattedMapName(rootMap:GetMapIndex()))
         result = adapter:SetMapToMapListIndexWithoutMeasuring(rootMap:GetMapIndex())
         if(result == SET_MAP_RESULT_FAILED) then return result end
 
         -- try to click on the center of the target map
         local x, y = rootMap:ToLocal(target:GetCenter())
         if(not WouldProcessMapClick(x, y)) then
-            logger:Debug(string.format("Cannot process click at %s/%s on root map \"%s\" in order to get to \"%s\". Returning to player location instead.", tostring(x), tostring(y), rootMap:GetId(), target:GetId()))
+            logger:Debug("Cannot process click at %s/%s on root map \"%s\" in order to get to \"%s\". Returning to player location instead.", tostring(x), tostring(y), rootMap:GetId(), target:GetId())
             return adapter:SetMapToPlayerLocationWithoutMeasuring()
         end
 
@@ -105,7 +105,7 @@ function MapStack:Pop()
             logger:Debug("switch to the sub zone " .. targetMapTileTexture)
             local current = meter:GetMeasurement(currentTileTexture)
             if(not current) then
-                logger:Debug(string.format("No measurement for \"%s\". Returning to player location.", currentTileTexture))
+                logger:Debug("No measurement for \"%s\". Returning to player location.", currentTileTexture)
                 return adapter:SetMapToPlayerLocationWithoutMeasuring()
             end
 
@@ -113,7 +113,7 @@ function MapStack:Pop()
             -- get local coordinates of target map center
             local x, y = current:ToLocal(target:GetCenter())
             if(not WouldProcessMapClick(x, y)) then
-                logger:Debug(string.format("Cannot process click at %s/%s on zone map \"%s\" in order to get to \"%s\". Returning to player location instead.", tostring(x), tostring(y), current:GetId(), target:GetId()))
+                logger:Debug("Cannot process click at %s/%s on zone map \"%s\" in order to get to \"%s\". Returning to player location instead.", tostring(x), tostring(y), current:GetId(), target:GetId())
                 return adapter:SetMapToPlayerLocationWithoutMeasuring()
             end
 
@@ -123,7 +123,7 @@ function MapStack:Pop()
 
         -- switch to the correct floor (e.g. Elden Root)
         if (currentMapFloorCount > 0) then
-            logger:Debug("switch to floor " .. currentMapFloor)
+            logger:Debug("switch to floor", currentMapFloor)
             result = adapter:SetMapFloorWithoutMeasuring(currentMapFloor)
         end
 
