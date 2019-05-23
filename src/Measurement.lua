@@ -2,11 +2,11 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local LGPS = LibGPS
-local logger = LGPS.internal.logger
+local lib = LibGPS3
+local logger = lib.internal.logger
 
 local Measurement = ZO_Object:Subclass()
-LGPS.class.Measurement = Measurement
+lib.internal.class.Measurement = Measurement
 
 function Measurement:New(...)
     local object = ZO_Object.New(self)

@@ -2,13 +2,13 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local LGPS = LibGPS
-local logger = LGPS.internal.logger
-local TAMRIEL_MAP_INDEX = LGPS.internal.TAMRIEL_MAP_INDEX
+local lib = LibGPS3
+local logger = lib.internal.logger
+local TAMRIEL_MAP_INDEX = lib.internal.TAMRIEL_MAP_INDEX
 local tremove = table.remove
 
 local MapStack = ZO_Object:Subclass()
-LGPS.class.MapStack = MapStack
+lib.internal.class.MapStack = MapStack
 
 function MapStack:New(...)
     local object = ZO_Object.New(self)

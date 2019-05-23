@@ -2,12 +2,15 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local MAJOR, MINOR = "LibGPS2", 17
+if not LibStub then return end
+
+local MAJOR, MINOR = "LibGPS2", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 assert(lib, "LibGPS2 compatibility layer was loaded more than once. Please ensure that its files are not included from other addons.")
+LibGPS2 = lib
 
-local LGPS = LibGPS
-local logger = LGPS.internal.logger
+local libv3 = LibGPS3
+local logger = libv3.internal.logger
 
 --- Unregister handler from older libGPS ( < 3)
 EVENT_MANAGER:UnregisterForEvent("LibGPS2_SaveWaypoint", EVENT_PLAYER_DEACTIVATED)
@@ -25,7 +28,7 @@ if (lib.Unload) then
     if (lib.suppressCount > 0) then
         logger:Warn("There is a measurement in progress before loading is completed.")
 
-        local LMP = LibStub("LibMapPing")
+        local LMP = LibMapPing or LibStub("LibMapPing")
         EVENT_MANAGER:UnregisterForUpdate("LibGPS2_Finalize")
         while lib.suppressCount > 0 do
             LMP:UnsuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
@@ -34,51 +37,52 @@ if (lib.Unload) then
     end
 end
 
-lib.LIB_EVENT_STATE_CHANGED = LGPS.LIB_EVENT_STATE_CHANGED
+lib.LIB_EVENT_STATE_CHANGED = libv3.LIB_EVENT_STATE_CHANGED
 -- propagate the callback in case someone registered to the old handle name
 local OLD_LIB_EVENT_STATE_CHANGED = "OnLibGPS2MeasurementChanged"
-CALLBACK_MANAGER:RegisterCallback(LGPS.LIB_EVENT_STATE_CHANGED, function(measuring)
+CALLBACK_MANAGER:RegisterCallback(libv3.LIB_EVENT_STATE_CHANGED, function(measuring)
     CALLBACK_MANAGER:FireCallbacks(OLD_LIB_EVENT_STATE_CHANGED, measuring)
 end)
 
 function lib:IsReady()
-    return LGPS:IsReady()
+    return libv3:IsReady()
 end
 
 function lib:IsMeasuring()
-    return LGPS:IsMeasuring()
+    return libv3:IsMeasuring()
 end
 
 function lib:ClearMapMeasurements()
-    return LGPS:ClearMapMeasurements()
+    return libv3:ClearMapMeasurements()
 end
 
 function lib:ClearCurrentMapMeasurements()
-    return LGPS:ClearCurrentMapMeasurements()
+    return libv3:ClearCurrentMapMeasurements()
 end
 
 function lib:GetCurrentMapMeasurements()
-    return LGPS:GetCurrentMapMeasurements()
+    return libv3:GetCurrentMapMeasurements()
 end
 
 function lib:GetCurrentMapParentZoneIndices()
-    local mapIndex, zoneIndex = LGPS:GetCurrentMapParentZoneIndices()
+    local mapIndex, zoneIndex = libv3:GetCurrentMapParentZoneIndices()
     return mapIndex, zoneIndex
 end
 
 function lib:CalculateMapMeasurements(returnToInitialMap)
-    return LGPS:CalculateMapMeasurements(returnToInitialMap)
+    return libv3:CalculateMapMeasurements(returnToInitialMap)
 end
 
 function lib:LocalToGlobal(x, y)
-    local measurement = LGPS.internal.meter:GetCurrentMapMeasurements()
+    local measurement = libv3.internal.meter:GetCurrentMapMeasurements()
     if(measurement) then
-        return measurement:ToGlobal(x, y), measurement:GetMapIndex()
+        local x, y = measurement:ToGlobal(x, y)
+        return x, y, measurement:GetMapIndex()
     end
 end
 
 function lib:GlobalToLocal(x, y)
-    return LGPS:GlobalToLocal(x, y)
+    return libv3:GlobalToLocal(x, y)
 end
 
 function lib:ZoneToGlobal(mapIndex, x, y)
@@ -96,23 +100,21 @@ function lib:PanToMapPosition(x, y)
 end
 
 function lib:SetPlayerChoseCurrentMap()
-    return LGPS:SetPlayerChoseCurrentMap()
+    return libv3:SetPlayerChoseCurrentMap()
 end
 
 function lib:SetMapToRootMap(x, y)
-    return LGPS:SetMapToRootMap(x, y)
+    return libv3:SetMapToRootMap(x, y)
 end
 
 function lib:MapZoomInMax(x, y)
-    return LGPS:MapZoomInMax(x, y)
+    return libv3:MapZoomInMax(x, y)
 end
 
 function lib:PushCurrentMap()
-    return LGPS:PushCurrentMap()
+    return libv3:PushCurrentMap()
 end
 
 function lib:PopCurrentMap()
-    return LGPS:PopCurrentMap()
+    return libv3:PopCurrentMap()
 end
-
-LGPS.internal.Initialize()

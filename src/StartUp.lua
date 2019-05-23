@@ -2,29 +2,30 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local MAJOR, MINOR = "LibGPS3", _LGPS_VERSION_NUMBER or -1
-local LGPS = LibStub:NewLibrary(MAJOR, MINOR)
-assert(LGPS, "LibGPS3 was loaded more than once. Please ensure that its files are not included from other addons.")
-LibGPS = LGPS
+local LIB_IDENTIFIER = "LibGPS3"
 
-local TAMRIEL_MAP_INDEX = 1
-local logger = LibDebugLogger.Create(MAJOR)
+assert(not _G[LIB_IDENTIFIER], LIB_IDENTIFIER .. " is already loaded")
 
-LGPS.class = {}
-LGPS.internal = {
-    TAMRIEL_MAP_INDEX = TAMRIEL_MAP_INDEX,
-    logger = logger
+local lib = {}
+_G[LIB_IDENTIFIER] = lib
+
+lib.internal = {
+    class = {},
+    logger = LibDebugLogger(LIB_IDENTIFIER),
+    TAMRIEL_MAP_INDEX = 1,
 }
-LGPS.LIB_EVENT_STATE_CHANGED = "OnLibGPS3MeasurementChanged"
 
-LGPS.internal.Initialize = function()
+function lib.internal:Initialize()
+    local class = self.class
+    local logger = self.logger
+
     logger:Debug("Initializing LibGPS3...")
-    local internal = LGPS.internal
+    local internal = lib.internal
     local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
 
-    local mapAdapter = LGPS.class.MapAdapter:New()
-    local meter = LGPS.class.TamrielOMeter:New(mapAdapter)
-    local waypointManager = LGPS.class.WaypointManager:New(mapAdapter, meter)
+    local mapAdapter = class.MapAdapter:New()
+    local meter = class.TamrielOMeter:New(mapAdapter)
+    local waypointManager = class.WaypointManager:New(mapAdapter, meter)
     mapAdapter:SetWaypointManager(waypointManager)
     meter:SetWaypointManager(waypointManager)
 
@@ -36,16 +37,16 @@ LGPS.internal.Initialize = function()
     end
 
     -- no need to actually measure the world map
-    local measurement = LGPS.class.Measurement:New()
+    local measurement = class.Measurement:New()
     measurement:SetId(mapAdapter:GetCurrentMapIdentifier())
     measurement:SetMapIndex(TAMRIEL_MAP_INDEX)
     meter:SetMeasurement(measurement, true)
 
     SetMapToPlayerLocation() -- initial measurement so we can get back to where we are currently
 
-    EVENT_MANAGER:RegisterForEvent(MAJOR, EVENT_ADD_ON_LOADED, function(event, name)
+    EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER, EVENT_ADD_ON_LOADED, function(event, name)
         if(name ~= "LibGPS") then return end
-        EVENT_MANAGER:UnregisterForEvent(MAJOR, EVENT_ADD_ON_LOADED)
+        EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER, EVENT_ADD_ON_LOADED)
         meter:InitializeSaveData()
         logger:Debug("Saved Variables loaded")
     end)

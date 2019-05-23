@@ -2,11 +2,11 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local LGPS = LibGPS
-local Measurement = LGPS.class.Measurement
-local MapStack = LGPS.class.MapStack
+local lib = LibGPS3
+local internal = lib.internal
+local Measurement = internal.class.Measurement
+local MapStack = internal.class.MapStack
 
-local internal = LGPS.internal
 local logger = internal.logger
 local sformat = string.format
 local mabs = math.abs
@@ -18,7 +18,7 @@ local POSITION_MAX = 0.915
 local MAP_CENTER = 0.5
 
 local TamrielOMeter = ZO_Object:Subclass()
-LGPS.class.TamrielOMeter = TamrielOMeter
+internal.class.TamrielOMeter = TamrielOMeter
 
 function TamrielOMeter:New(...)
     local object = ZO_Object.New(self)
@@ -107,7 +107,7 @@ function TamrielOMeter:SetMeasuring(measuring)
     local changed = (self.measuring ~= measuring)
     self.measuring = measuring
     if(changed) then
-        CALLBACK_MANAGER:FireCallbacks(LGPS.LIB_EVENT_STATE_CHANGED, measuring)
+        CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, measuring)
     end
 end
 

@@ -3,8 +3,8 @@
 ------------------------------------------------------------------
 
 local EVENT_MANAGER = EVENT_MANAGER
-local LGPS = LibGPS
-local logger = LGPS.internal.logger
+local lib = LibGPS3
+local logger = lib.internal.logger
 
 local MAP_PIN_TYPE_PLAYER_WAYPOINT = MAP_PIN_TYPE_PLAYER_WAYPOINT
 local MAP_TYPE_LOCATION_CENTERED = MAP_TYPE_LOCATION_CENTERED
@@ -12,7 +12,7 @@ local SET_MAP_RESULT_FAILED = SET_MAP_RESULT_FAILED
 local LIB_IDENTIFIER_FINALIZE = "LibGPS3_Finalize"
 
 local WaypointManager = ZO_Object:Subclass()
-LGPS.class.WaypointManager = WaypointManager
+lib.internal.class.WaypointManager = WaypointManager
 
 function WaypointManager:New(...)
     local object = ZO_Object.New(self)

@@ -2,27 +2,30 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local LGPS = LibGPS
-local internal = LGPS.internal
+local lib = LibGPS3
+local internal = lib.internal
 local logger = internal.logger
 
+--- identifier for the measurement change callback
+lib.LIB_EVENT_STATE_CHANGED = "OnLibGPSMeasurementChanged"
+
 --- Returns true as long as the player exists.
-function LGPS:IsReady()
+function lib:IsReady()
     return DoesUnitExist("player")
 end
 
 --- Returns true if the library is currently doing any measurements.
-function LGPS:IsMeasuring()
+function lib:IsMeasuring()
     return internal.meter:IsMeasuring()
 end
 
 --- Removes all cached measurement values.
-function LGPS:ClearMapMeasurements()
+function lib:ClearMapMeasurements()
     internal.meter:Reset()
 end
 
 --- Removes the cached measurement values for the map that is currently active.
-function LGPS:ClearCurrentMapMeasurements()
+function lib:ClearCurrentMapMeasurements()
     internal.meter:ClearCurrentMapMeasurements()
 end
 
@@ -31,7 +34,7 @@ end
 --- scaleX and scaleY are the dimensions of the active map on the Tamriel map.
 --- offsetX and offsetY are the offset of the top left corner on the Tamriel map.
 --- mapIndex is the mapIndex of the parent zone of the current map.
-function LGPS:GetCurrentMapMeasurements()
+function lib:GetCurrentMapMeasurements()
     return internal.meter:GetCurrentMapMeasurements()
 end
 
@@ -39,7 +42,7 @@ end
 --- return[1] number - The mapIndex of the parent zone
 --- return[2] number - The zoneIndex of the parent zone
 --- return[3] number - The zoneId of the parent zone
-function LGPS:GetCurrentMapParentZoneIndices()
+function lib:GetCurrentMapParentZoneIndices()
     local measurement = internal.meter:GetCurrentMapMeasurements()
     local mapIndex = measurement:GetMapIndex()
     local zoneId = measurement:GetZoneId()
@@ -60,13 +63,13 @@ end
 --- This method does nothing if there is already a cached measurement for the active map.
 --- return[1] boolean - True, if a valid measurement was calculated
 --- return[2] SetMapResultCode - Specifies if the map has changed or failed during measurement (independent of the actual result of the measurement)
-function LGPS:CalculateMapMeasurements(returnToInitialMap)
+function lib:CalculateMapMeasurements(returnToInitialMap)
     return internal.meter:CalculateMapMeasurements(returnToInitialMap)
 end
 
 --- Converts the given map coordinates on the current map into coordinates on the Tamriel map.
 --- Returns x and y on the world map or nil if the measurements of the active map are not available.
-function LGPS:LocalToGlobal(x, y)
+function lib:LocalToGlobal(x, y)
     local measurement = internal.meter:GetCurrentMapMeasurements()
     if(measurement) then
         return measurement:ToGlobal(x, y)
@@ -75,7 +78,7 @@ end
 
 --- Converts the given global coordinates into a position on the active map.
 --- Returns x and y on the current map or nil if the measurements of the active map are not available.
-function LGPS:GlobalToLocal(x, y)
+function lib:GlobalToLocal(x, y)
     local measurement = internal.meter:GetCurrentMapMeasurements()
     if(measurement) then
         return measurement:ToLocal(x, y)
@@ -83,13 +86,13 @@ function LGPS:GlobalToLocal(x, y)
 end
 
 --- This function sets the current map as player chosen so it won't switch back to the previous map.
-function LGPS:SetPlayerChoseCurrentMap()
+function lib:SetPlayerChoseCurrentMap()
     return internal.mapAdapter:SetPlayerChoseCurrentMap()
 end
 
 --- Sets the best matching root map: Tamriel, Cold Harbour or Clockwork City and what ever will come.
 --- Returns SET_MAP_RESULT_FAILED, SET_MAP_RESULT_MAP_CHANGED depending on the result of the API calls.
-function LGPS:SetMapToRootMap(x, y)
+function lib:SetMapToRootMap(x, y)
     local measurement = internal.meter:FindRootMapMeasurementForCoordinates(x, y)
     if(not measurement) then return SET_MAP_RESULT_FAILED end
 
@@ -98,16 +101,16 @@ end
 
 --- Repeatedly calls ProcessMapClick on the given global position starting on the Tamriel map until nothing more would happen.
 --- Returns SET_MAP_RESULT_FAILED, SET_MAP_RESULT_MAP_CHANGED or SET_MAP_RESULT_CURRENT_MAP_UNCHANGED depending on the result of the API calls.
-function LGPS:MapZoomInMax(x, y)
-    local result = LGPS:SetMapToRootMap(x, y)
+function lib:MapZoomInMax(x, y)
+    local result = lib:SetMapToRootMap(x, y)
 
     if (result ~= SET_MAP_RESULT_FAILED) then
-        local localX, localY = LGPS:GlobalToLocal(x, y)
+        local localX, localY = lib:GlobalToLocal(x, y)
 
         while WouldProcessMapClick(localX, localY) do
             result = internal.mapAdapter:ProcessMapClickWithoutMeasuring(localX, localY)
             if (result == SET_MAP_RESULT_FAILED) then break end
-            localX, localY = LGPS:GlobalToLocal(x, y)
+            localX, localY = lib:GlobalToLocal(x, y)
         end
     end
 
@@ -115,12 +118,14 @@ function LGPS:MapZoomInMax(x, y)
 end
 
 --- Stores information about how we can back to this map on a stack.
-function LGPS:PushCurrentMap()
+function lib:PushCurrentMap()
     internal.meter:PushCurrentMap()
 end
 
 --- Switches to the map that was put on the stack last.
 --- Returns SET_MAP_RESULT_FAILED, SET_MAP_RESULT_MAP_CHANGED or SET_MAP_RESULT_CURRENT_MAP_UNCHANGED depending on the result of the API calls.
-function LGPS:PopCurrentMap()
+function lib:PopCurrentMap()
     return internal.meter:PopCurrentMap()
 end
+
+internal:Initialize()

@@ -2,13 +2,11 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-local LGPS = LibGPS
-
-local internal = LGPS.internal
-local logger = internal.logger
+local lib = LibGPS3
+local logger = lib.internal.logger
 
 local MapAdapter = ZO_Object:Subclass()
-LGPS.class.MapAdapter = MapAdapter
+lib.internal.class.MapAdapter = MapAdapter
 
 function MapAdapter:New(...)
     local object = ZO_Object.New(self)
@@ -38,10 +36,10 @@ function MapAdapter:HookSetMapToFunction(funcName, returnToInitialMap, skipSecon
     self.original[funcName] = orgFunction
     _G[funcName] = function(...)
         local result = orgFunction(...)
-        if(result ~= SET_MAP_RESULT_MAP_FAILED and not LGPS:GetCurrentMapMeasurements()) then
+        if(result ~= SET_MAP_RESULT_MAP_FAILED and not lib:GetCurrentMapMeasurements()) then
             logger:Debug(funcName)
 
-            local success, mapResult = LGPS:CalculateMapMeasurements(returnToInitialMap)
+            local success, mapResult = lib:CalculateMapMeasurements(returnToInitialMap)
             if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
                 result = mapResult
             end
