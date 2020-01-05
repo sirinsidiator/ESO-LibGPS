@@ -48,7 +48,7 @@ function WaypointManager:GetPlayerWaypoint()
 end
 
 function WaypointManager:SetPlayerWaypoint(x, y)
-    self.LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+    return self.LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
 end
 
 function WaypointManager:HasPlayerWaypoint()
