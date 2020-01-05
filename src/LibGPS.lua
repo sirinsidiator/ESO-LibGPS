@@ -786,3 +786,5 @@ function lib:PopCurrentMap()
 end
 
 Initialize()
+
+LibGPS2 = lib
