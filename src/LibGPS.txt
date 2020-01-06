@@ -1,6 +1,6 @@
 ## Title: LibGPS
 ## Author: sirinsidiator & votan
-## Version: 2.0 r18
+## Version: 2.0 rVERSION_NUMBER
 ## APIVersion: 100029 100030
 ## AddOnVersion: 18
 ## IsLibrary: true
