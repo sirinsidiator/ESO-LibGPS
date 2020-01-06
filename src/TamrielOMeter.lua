@@ -15,6 +15,7 @@ local SCALE_INACCURACY_WARNING_THRESHOLD = 1e-3
 local POSITION_MIN = 0.085
 local POSITION_MAX = 0.915
 local MAP_CENTER = 0.5
+local VERSION = 3
 
 local TamrielOMeter = ZO_Object:Subclass()
 internal.class.TamrielOMeter = TamrielOMeter
@@ -43,10 +44,11 @@ end
 function TamrielOMeter:InitializeSaveData()
     local saveData = LibGPS_Data
 
-    if(not saveData or saveData.version ~= GetAPIVersion()) then
+    if(not saveData or saveData.version ~= VERSION or saveData.apiVersion ~= GetAPIVersion()) then
         logger:Info("Creating new saveData")
         saveData = {
-            version = GetAPIVersion(),
+            version = VERSION,
+            apiVersion = GetAPIVersion(),
             measurements = {}
         }
     end
