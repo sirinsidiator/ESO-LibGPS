@@ -1,9 +1,10 @@
 local LIB_IDENTIFIER = "LibMapPing"
-local lib = LibStub:NewLibrary(LIB_IDENTIFIER, 9)
+local lib = LibStub and LibStub:NewLibrary(LIB_IDENTIFIER, 10)
 
-if not lib then
+if LibStub and not lib then
     return -- already loaded and no upgrade necessary
 end
+lib = lib or {}
 
 local function Log(message, ...)
     df("[%s] %s", LIB_IDENTIFIER, message:format(...))
