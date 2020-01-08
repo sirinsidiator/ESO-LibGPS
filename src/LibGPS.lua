@@ -1,4 +1,4 @@
--- LibGPS2 & its files © sirinsidiator                          --
+﻿-- LibGPS2 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -6,8 +6,7 @@ local LIB_NAME = "LibGPS2"
 local lib = LibStub and LibStub:NewLibrary(LIB_NAME, 999) -- only for test purposes. releases will get a smaller number
 
 if LibStub and not lib then
-    return
-    -- already loaded and no upgrade necessary
+    return -- already loaded and no upgrade necessary
 end
 
 local LMP = LibMapPing
@@ -764,12 +763,12 @@ Initialize()
 
 local function InitializeSaveData()
     local VERSION = 2
-    LibGPS_Data = LibGPS_Data or {APIVersion = GetAPIVersion(), Version = VERSION}
+    LibGPS_Data = LibGPS_Data or {apiVersion = GetAPIVersion(), version = VERSION}
 	if #lib.mapMeasurements > 0 then LogMessage(LOG_DEBUG, "Measurements before loading") end
-    if LibGPS_Data.APIVersion == GetAPIVersion() and LibGPS_Data.Version == VERSION and LibGPS_Data.mapMeasurements then
-        ZO_ShallowTableCopy(LibGPS_Data.mapMeasurements, lib.mapMeasurements)
+    if LibGPS_Data.apiVersion == GetAPIVersion() and LibGPS_Data.version == VERSION and LibGPS_Data.measurements then
+        ZO_ShallowTableCopy(LibGPS_Data.measurements, lib.mapMeasurements)
     end
-    LibGPS_Data.mapMeasurements = lib.mapMeasurements
+    LibGPS_Data.measurements = lib.mapMeasurements
 
     LogMessage(LOG_DEBUG, "Saved Variables loaded")
 end

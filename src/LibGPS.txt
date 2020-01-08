@@ -4,7 +4,7 @@
 ## APIVersion: 100029 100030
 ## AddOnVersion: 18
 ## IsLibrary: true
-## DependsOn: LibMapPing>=1000
+## DependsOn: LibMapPing>=900
 ## SavedVariables: LibGPS_Data
 ##
 ## This Add-on is not created by, affiliated with or sponsored by ZeniMax Media Inc. or its affiliates. 
