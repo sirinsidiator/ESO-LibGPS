@@ -1,19 +1,20 @@
--- LibGPS2 & its files Â© sirinsidiator                          --
+-- LibGPS2 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
 local LIB_NAME = "LibGPS2"
-local lib = LibStub:NewLibrary(LIB_NAME, 999) -- only for test purposes. releases will get a smaller number
+local lib = LibStub and LibStub:NewLibrary(LIB_NAME, 999) -- only for test purposes. releases will get a smaller number
 
-if not lib then
-    return
-    -- already loaded and no upgrade necessary
+if LibStub and not lib then
+    return -- already loaded and no upgrade necessary
 end
 
-local LMP = LibStub("LibMapPing", true)
+local LMP = LibMapPing
 if(not LMP) then
     error(string.format("[%s] Cannot load without LibMapPing", LIB_NAME))
 end
+
+LIB_NAME = "LibGPS"
 
 local DUMMY_PIN_TYPE = LIB_NAME .. "DummyPin"
 local LIB_IDENTIFIER_FINALIZE = LIB_NAME .. "_Finalize"
@@ -59,11 +60,7 @@ local function LogMessage(type, message, ...)
 end
 
 local function GetAddon()
-    local addOn
-    local function errornous() addOn = 'a' + 1 end
-    local function errorHandler(err) addOn = string.match(err, "'GetAddon'.+user:/AddOns/(.-:.-):") end
-    xpcall(errornous, errorHandler)
-    return addOn
+    return string.match(debug.traceback("", 2), "user:/AddOns/(.+)")
 end
 
 local function FinalizeMeasurement()
@@ -294,11 +291,9 @@ local function HookSetMapToFunction(funcName)
         if(result ~= SET_MAP_RESULT_MAP_FAILED and not IsMapMeasured()) then
             LogMessage(LOG_DEBUG, funcName)
 
-            local success, mapResult = lib:CalculateMapMeasurements(false)
-            if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
-                result = mapResult
-            end
+            lib:CalculateMapMeasurements(false)
             orgFunction(...)
+            result = SET_MAP_RESULT_MAP_CHANGED
         end
         -- All stuff is done before anyone triggers an "OnWorldMapChanged" event due to this result
         return result
@@ -315,11 +310,9 @@ local function HookSetMapToPlayerLocation()
         if(result ~= SET_MAP_RESULT_MAP_FAILED and not IsMapMeasured()) then
             LogMessage(LOG_DEBUG, "SetMapToPlayerLocation")
 
-            local success, mapResult = lib:CalculateMapMeasurements(false)
-            if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
-                result = mapResult
-            end
+            lib:CalculateMapMeasurements(false)
             orgSetMapToPlayerLocation(...)
+            result = SET_MAP_RESULT_MAP_CHANGED
         end
         -- All stuff is done before anyone triggers an "OnWorldMapChanged" event due to this result
         return result
@@ -335,11 +328,9 @@ local function HookSetMapToMapListIndex()
         if(result ~= SET_MAP_RESULT_MAP_FAILED and not IsMapMeasured()) then
             LogMessage(LOG_DEBUG, "SetMapToMapListIndex")
 
-            local success, mapResult = lib:CalculateMapMeasurements(false)
-            if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
-                result = mapResult
-            end
+            lib:CalculateMapMeasurements(false)
             orgSetMapToMapListIndex(mapIndex)
+            result = SET_MAP_RESULT_MAP_CHANGED
         end
 
         -- All stuff is done before anyone triggers an "OnWorldMapChanged" event due to this result
@@ -355,10 +346,7 @@ local function HookProcessMapClick()
         local result = orgProcessMapClick(...)
         if(result ~= SET_MAP_RESULT_MAP_FAILED and not IsMapMeasured()) then
             LogMessage(LOG_DEBUG, "ProcessMapClick")
-            local success, mapResult = lib:CalculateMapMeasurements(true)
-            if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
-                result = mapResult
-            end
+            lib:CalculateMapMeasurements(true)
             -- Returning is done via clicking already
         end
         return result
@@ -373,10 +361,7 @@ local function HookSetMapFloor()
         local result = orgSetMapFloor(...)
         if result ~= SET_MAP_RESULT_MAP_FAILED and not IsMapMeasured() then
             LogMessage(LOG_DEBUG, "SetMapFloor")
-            local success, mapResult = lib:CalculateMapMeasurements(true)
-            if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
-                result = mapResult
-            end
+            lib:CalculateMapMeasurements(true)
             orgSetMapFloor(...)
         end
         return result
@@ -420,6 +405,7 @@ local function Initialize() -- wait until we have defined all functions
     HookSetMapToFunction("SetMapToQuestCondition")
     HookSetMapToFunction("SetMapToQuestStepEnding")
     HookSetMapToFunction("SetMapToQuestZone")
+    HookSetMapToFunction("SetMapToAutoMapNavigationTargetPosition")
     HookSetMapToPlayerLocation()
     HookSetMapToMapListIndex()
     HookProcessMapClick()
@@ -435,8 +421,6 @@ local function Initialize() -- wait until we have defined all functions
     addRootMap(980) -- Clockwork City
     addRootMap(1027) -- Artaeum
     -- Any future extra dimension map here
-
-    SetMapToPlayerLocation() -- initial measurement so we can get back to where we are currently
 
     LMP:RegisterCallback("AfterPingAdded", HandlePingEvent)
     LMP:RegisterCallback("AfterPingRemoved", HandlePingEvent)
@@ -663,21 +647,11 @@ function lib:MapZoomInMax(x, y)
     return result
 end
 
-local SetCurrentZoom, GetCurrentZoom -- TODO remove
-if(GetAPIVersion() >= 100025) then
-    function SetCurrentZoom(zoom)
-        return lib.panAndZoom:SetCurrentNormalizedZoom(zoom)
-    end
-    function GetCurrentZoom()
-        return lib.panAndZoom:GetCurrentNormalizedZoom()
-    end
-else
-    function GetCurrentZoom()
-        return lib.panAndZoom:GetCurrentZoom()
-    end
-    function SetCurrentZoom(zoom)
-        return lib.panAndZoom:SetCurrentZoom(zoom)
-    end
+local function SetCurrentZoom(zoom)
+    return lib.panAndZoom:SetCurrentNormalizedZoom(zoom)
+end
+local function GetCurrentZoom()
+    return lib.panAndZoom:GetCurrentNormalizedZoom()
 end
 
 --- Stores information about how we can back to this map on a stack.
@@ -786,5 +760,31 @@ function lib:PopCurrentMap()
 end
 
 Initialize()
+
+local function InitializeSaveData()
+    local VERSION = 2
+    LibGPS_Data = LibGPS_Data or {apiVersion = GetAPIVersion(), version = VERSION}
+	if #lib.mapMeasurements > 0 then LogMessage(LOG_DEBUG, "Measurements before loading") end
+    if LibGPS_Data.apiVersion == GetAPIVersion() and LibGPS_Data.version == VERSION and LibGPS_Data.measurements then
+        ZO_ShallowTableCopy(LibGPS_Data.measurements, lib.mapMeasurements)
+    end
+    LibGPS_Data.measurements = lib.mapMeasurements
+
+    LogMessage(LOG_DEBUG, "Saved Variables loaded")
+end
+
+local function onLoad(eventCode, addonName)
+    if addonName ~= LIB_NAME then
+        return
+    end
+    EVENT_MANAGER:UnregisterForEvent(LIB_NAME, eventCode)
+
+    InitializeSaveData()
+
+    SetMapToPlayerLocation() -- initial measurement so we can get back to where we are currently
+end
+
+EVENT_MANAGER:UnregisterForEvent(LIB_NAME, EVENT_ADD_ON_LOADED)
+EVENT_MANAGER:RegisterForEvent(LIB_NAME, EVENT_ADD_ON_LOADED, onLoad)
 
 LibGPS2 = lib
