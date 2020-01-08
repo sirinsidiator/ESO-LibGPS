@@ -93,11 +93,35 @@ local function GetPlayerWaypoint()
     return LMP:GetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 end
 
-local function SetMeasurementWaypoint(x, y)
+local function SetMeasurementWaypoint(localX, localY)
     -- this waypoint stays invisible for others
     lib.suppressCount = lib.suppressCount + 1
     LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-    LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+    
+    local _, pwx, pwh, pwy = GetUnitWorldPosition("player")
+    local x, y = 2000000, 2000000
+    if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
+        x = -x
+        if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
+            y = -y
+            if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
+                x = -x
+                if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
+                    return 0, 0
+                end
+            end
+        end
+    end
+    local wpX, wpY = GetPlayerWaypoint()
+
+    local dwx, dwy = x - pwx, y - pwy
+    local dnx, dny = wpX - localX, wpY - localY
+    local worldUnits = math.sqrt((dwx*dwx+dwy*dwy)/(dnx*dnx+dny*dny)) + 0.5
+
+    if currentWaypointMapId then
+        currentWaypointX, currentWaypointY = (currentWaypointX-localX) * worldUnits + pwx, (currentWaypointY-localY) * worldUnits + pwy
+    end
+    return wpX, wpY
 end
 
 local function SetPlayerWaypoint(x, y)
@@ -138,14 +162,7 @@ local function StoreTamrielMapMeasurements()
 end
 
 local function CalculateMeasurements(mapId, localX, localY)
-    -- select the map corner farthest from the player position
-    local wpX, wpY = POSITION_MIN, POSITION_MIN
-    -- on some maps we cannot set the waypoint to the map border (e.g. Aurdion)
-    -- Opposite corner:
-    if (localX < 0.5) then wpX = POSITION_MAX end
-    if (localY < 0.5) then wpY = POSITION_MAX end
-
-    SetMeasurementWaypoint(wpX, wpY)
+    local wpX, wpY = SetMeasurementWaypoint(localX, localY)
 
     -- add local points to seen maps
     local measurementPositions = {}
@@ -230,37 +247,14 @@ local function GetExtraMapMeasurement(extraMapIndex)
 end
 
 local function RestoreCurrentWaypoint()
-    if(not currentWaypointMapId) then
+   if(not currentWaypointMapId) then
         LogMessage(LOG_DEBUG, "Called RestoreCurrentWaypoint without calling StoreCurrentWaypoint.")
         return
     end
 
     local wasSet = false
     if (currentWaypointX ~= 0 or currentWaypointY ~= 0) then
-        -- calculate waypoint position on the worldmap
-        local measurements = mapMeasurements[currentWaypointMapId]
-        local x = currentWaypointX * measurements.scaleX + measurements.offsetX
-        local y = currentWaypointY * measurements.scaleY + measurements.offsetY
-
-        for rootMapIndex, measurements in pairs(rootMaps) do
-            if not measurements then
-                measurements = GetExtraMapMeasurement(rootMapIndex)
-                rootMaps[rootMapIndex] = measurements
-            end
-            if(measurements) then
-                if(x > measurements.offsetX and x < (measurements.offsetX + measurements.scaleX) and
-                    y > measurements.offsetY and y < (measurements.offsetY + measurements.scaleY)) then
-                    if(orgSetMapToMapListIndex(rootMapIndex) ~= SET_MAP_RESULT_FAILED) then
-                        -- calculate waypoint coodinates within root map
-                        x = (x - measurements.offsetX) / measurements.scaleX
-                        y = (y - measurements.offsetY) / measurements.scaleY
-                        SetPlayerWaypoint(x, y)
-                        wasSet = true
-                        break
-                    end
-                end
-            end
-        end
+        wasSet = SetPlayerWaypointByWorldLocation(currentWaypointX, 1, currentWaypointY)
         if (not wasSet) then
             LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of our reach")
         end
