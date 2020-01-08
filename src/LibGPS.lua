@@ -1,4 +1,4 @@
-﻿-- LibGPS2 & its files © sirinsidiator                          --
+-- LibGPS2 & its files � sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
