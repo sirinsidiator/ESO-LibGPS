@@ -93,11 +93,45 @@ local function GetPlayerWaypoint()
     return LMP:GetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 end
 
+local function ClearCurrentWaypoint()
+    currentWaypointX, currentWaypointY = 0, 0, nil
+end
+
+local function RestoreCurrentWaypoint()
+   if(not currentWaypointMapId) then
+        LogMessage(LOG_DEBUG, "Called RestoreCurrentWaypoint without stored waypoint.")
+        return
+    end
+
+    local wasSet = false
+    if (currentWaypointX ~= 0 or currentWaypointY ~= 0) then
+        wasSet = SetPlayerWaypointByWorldLocation(currentWaypointX, 1, currentWaypointY)
+        if (not wasSet) then
+            LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of our reach")
+        end
+    end
+
+    if(wasSet) then
+        LogMessage(LOG_DEBUG, "Waypoint was restored, request pin update")
+        needWaypointRestore = true -- we need to update the pin on the worldmap afterwards
+    else
+        RemovePlayerWaypoint()
+    end
+
+    ClearCurrentWaypoint()
+end
+
 local function SetMeasurementWaypoint(localX, localY)
+    local hasWaypoint = LMP:HasMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
+    if hasWaypoint then
+        currentWaypointX, currentWaypointY = GetPlayerWaypoint()
+        currentWaypointMapId = GetMapTileTexture()
+    end
+
     -- this waypoint stays invisible for others
     lib.suppressCount = lib.suppressCount + 1
     LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-    
+
     local _, pwx, pwh, pwy = GetUnitWorldPosition("player")
     local x, y = 2000000, 2000000
     if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
@@ -107,7 +141,9 @@ local function SetMeasurementWaypoint(localX, localY)
             if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
                 x = -x
                 if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
-                    return 0, 0
+                    LogMessage(LOG_WARNING, "Cannot set reference waypoint")
+                    ClearCurrentWaypoint()
+                    return 0, 0, false
                 end
             end
         end
@@ -116,16 +152,12 @@ local function SetMeasurementWaypoint(localX, localY)
 
     local dwx, dwy = x - pwx, y - pwy
     local dnx, dny = wpX - localX, wpY - localY
-    local worldUnits = math.sqrt((dwx*dwx+dwy*dwy)/(dnx*dnx+dny*dny)) + 0.5
+    local scale = math.sqrt((dwx*dwx+dwy*dwy)/(dnx*dnx+dny*dny))
 
-    if currentWaypointMapId then
-        currentWaypointX, currentWaypointY = (currentWaypointX-localX) * worldUnits + pwx, (currentWaypointY-localY) * worldUnits + pwy
+    if hasWaypoint then
+        currentWaypointX, currentWaypointY = (currentWaypointX-localX) * scale + pwx, (currentWaypointY-localY) * scale + pwy
     end
-    return wpX, wpY
-end
-
-local function SetPlayerWaypoint(x, y)
-    LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+    return wpX, wpY, hasWaypoint
 end
 
 local function RemovePlayerWaypoint()
@@ -162,7 +194,7 @@ local function StoreTamrielMapMeasurements()
 end
 
 local function CalculateMeasurements(mapId, localX, localY)
-    local wpX, wpY = SetMeasurementWaypoint(localX, localY)
+    local wpX, wpY, hasWaypoint = SetMeasurementWaypoint(localX, localY)
 
     -- add local points to seen maps
     local measurementPositions = {}
@@ -214,16 +246,7 @@ local function CalculateMeasurements(mapId, localX, localY)
             zoneIndex = zoneIndex
         }
     end
-    return mapIndex
-end
-
-local function StoreCurrentWaypoint()
-    currentWaypointX, currentWaypointY = GetPlayerWaypoint()
-    currentWaypointMapId = GetMapTileTexture()
-end
-
-local function ClearCurrentWaypoint()
-    currentWaypointX, currentWaypointY = 0, 0, nil
+    return mapIndex, hasWaypoint
 end
 
 local function GetExtraMapMeasurement(extraMapIndex)
@@ -244,29 +267,6 @@ local function GetExtraMapMeasurement(extraMapIndex)
         end
     end
     return mapMeasurements[extraMapId]
-end
-
-local function RestoreCurrentWaypoint()
-   if(not currentWaypointMapId) then
-        LogMessage(LOG_DEBUG, "Called RestoreCurrentWaypoint without calling StoreCurrentWaypoint.")
-        return
-    end
-
-    local wasSet = false
-    if (currentWaypointX ~= 0 or currentWaypointY ~= 0) then
-        wasSet = SetPlayerWaypointByWorldLocation(currentWaypointX, 1, currentWaypointY)
-        if (not wasSet) then
-            LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of our reach")
-        end
-    end
-
-    if(wasSet) then
-        LogMessage(LOG_DEBUG, "Waypoint was restored, request pin update")
-        needWaypointRestore = true -- we need to update the pin on the worldmap afterwards
-    else
-        RemovePlayerWaypoint()
-    end
-    ClearCurrentWaypoint()
 end
 
 local function ConnectToWorldMap()
@@ -507,10 +507,7 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
         lib:PushCurrentMap()
     end
 
-    local hasWaypoint = LMP:HasMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-    if(hasWaypoint) then StoreCurrentWaypoint() end
-
-    local mapIndex = CalculateMeasurements(mapId, localX, localY)
+    local mapIndex, hasWaypoint = CalculateMeasurements(mapId, localX, localY)
 
     -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
     if(hasWaypoint) then
