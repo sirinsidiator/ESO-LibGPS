@@ -94,7 +94,7 @@ local function GetPlayerWaypoint()
 end
 
 local function ClearCurrentWaypoint()
-    currentWaypointX, currentWaypointY = 0, 0, nil
+    currentWaypointX, currentWaypointY, currentWaypointMapId = 0, 0, nil
 end
 
 local function RestoreCurrentWaypoint()
