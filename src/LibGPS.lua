@@ -104,7 +104,7 @@ local function RestoreCurrentWaypoint()
     if (currentWaypointX ~= 0 or currentWaypointY ~= 0) then
         wasSet = SetPlayerWaypointByWorldLocation(currentWaypointX, 1, currentWaypointY)
         if (not wasSet) then
-            LogMessage(LOG_DEBUG, "Cannot reset waypoint because it was outside of our reach")
+            LogMessage(LOG_DEBUG, "Cannot reset waypoint")
         end
     end
 
