@@ -24,9 +24,6 @@ local LOG_WARNING = "Warning"
 local LOG_NOTICE = "Notice"
 local LOG_DEBUG = "Debug"
 
-local POSITION_MIN = 0.085
-local POSITION_MAX = 0.915
-
 local TAMRIEL_MAP_INDEX = 1
 
 local rootMaps = lib.rootMaps or {}
