@@ -133,20 +133,11 @@ local function SetMeasurementWaypoint(localX, localY)
     LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 
     local _, pwx, pwh, pwy = GetUnitWorldPosition("player")
-    local x, y = 2000000, 2000000
+    local x, y = 1, 1
     if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
-        x = -x
-        if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
-            y = -y
-            if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
-                x = -x
-                if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
-                    LogMessage(LOG_WARNING, "Cannot set reference waypoint")
-                    ClearCurrentWaypoint()
-                    return 0, 0, false
-                end
-            end
-        end
+        LogMessage(LOG_WARNING, "Cannot set reference waypoint")
+        ClearCurrentWaypoint()
+        return 0, 0, false
     end
     local wpX, wpY = GetPlayerWaypoint()
 
