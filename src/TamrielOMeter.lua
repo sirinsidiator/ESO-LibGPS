@@ -12,8 +12,7 @@ local mabs = math.abs
 
 local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
 local SCALE_INACCURACY_WARNING_THRESHOLD = 1e-3
-local POSITION_MIN = 0.085
-local POSITION_MAX = 0.915
+local DEFAULT_TAMRIEL_SIZE = 2500000
 local MAP_CENTER = 0.5
 local VERSION = 3
 
@@ -39,27 +38,6 @@ function TamrielOMeter:Initialize(adapter)
     self:RegisterRootMap(GetMapIndexByZoneId(980)) -- Clockwork City
     self:RegisterRootMap(GetMapIndexByZoneId(1027)) -- Artaeum
     -- Any future extra dimensional map here
-end
-
-function TamrielOMeter:InitializeSaveData()
-    local saveData = LibGPS_Data
-
-    if(not saveData or saveData.version ~= VERSION or saveData.apiVersion ~= GetAPIVersion()) then
-        logger:Info("Creating new saveData")
-        saveData = {
-            version = VERSION,
-            apiVersion = GetAPIVersion(),
-            measurements = {}
-        }
-    end
-
-    for id, data in pairs(self.savedMeasurements) do
-        saveData.measurements[id] = data
-    end
-    self.savedMeasurements = saveData.measurements
-
-    LibGPS_Data = saveData
-    internal.saveData = saveData
 end
 
 function TamrielOMeter:Reset()
@@ -227,14 +205,7 @@ end
 function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
     local adapter = self.adapter
 
-    -- select the map corner farthest from the player position
-    local wpX, wpY = POSITION_MIN, POSITION_MIN
-    -- on some maps we cannot set the waypoint to the map border (e.g. Aurdion)
-    -- Opposite corner:
-    if(localX < MAP_CENTER) then wpX = POSITION_MAX end
-    if(localY < MAP_CENTER) then wpY = POSITION_MAX end
-
-    self.waypointManager:SetMeasurementWaypoint(wpX, wpY)
+    local wpX, wpY = self.waypointManager:SetMeasurementWaypoint(localX, localY)
 
     -- add local points to seen maps
     local measurementPositions = {}
@@ -264,6 +235,14 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
 
     -- get the two reference points on the world map
     x1, y1, x2, y2 = self:GetReferencePoints()
+
+    -- global size in WorldUnits for zoneId
+    local zoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
+    local dwx, dwy = 1 - pwx, 1 - pwy
+    local dnx, dny = x2 - x1, y2 - y1
+    local scale = math.sqrt((dwx*dwx+dwy*dwy)/(dnx*dnx+dny*dny))
+    -- smooth value to get a nice "2500000" for zone maps
+    adapter.zoneWorldScale[zoneId] = math.floor(scale * 0.25 + 0.125) * 4
 
     -- calculate scale and offset for all maps that we saw
     local scaleX, scaleY, offsetX, offsetY
@@ -313,4 +292,53 @@ end
 
 function TamrielOMeter:PopCurrentMap()
     return self.mapStack:Pop()
+end
+
+function TamrielOMeter:GetCurrentWorldSize()
+    local adapter = self.adapter
+    local zoneId = adapter:GetPlayerWorldPosition()
+    local scale = adapter.zoneWorldScale[zoneId]
+    if not scale then
+        -- This can happend, e.g. by porting
+        -- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
+        if(adapter:IsCurrentMapCosmicMap()) then return DEFAULT_TAMRIEL_SIZE end
+
+        -- no need to take measurements more than once
+        local mapId = adapter:GetCurrentMapIdentifier()
+        if(mapId == "") then return DEFAULT_TAMRIEL_SIZE end
+
+        -- get the player position on the current map
+        local localX, localY = adapter:GetPlayerPosition()
+        if (localX == 0 and localY == 0) then
+            -- cannot take measurements while player position is not initialized
+            return DEFAULT_TAMRIEL_SIZE
+        end
+
+        logger:Debug("CalculateMapMeasurements for GetCurrentWorldSize in ", zoneId)
+
+        self:SetMeasuring(true)
+
+        -- check some facts about the current map, so we can reset it later
+        -- local oldMapIsZoneMap, oldMapFloor, oldMapFloorCount
+        self:PushCurrentMap()
+
+        local waypointManager = self.waypointManager
+        local hasWaypoint = waypointManager:HasPlayerWaypoint()
+        if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
+
+        self:CalculateMeasurementsInternal(mapId, localX, localY)
+
+        -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
+        if(hasWaypoint) then
+            waypointManager:RestorePlayerWaypoint()
+        else
+            waypointManager:RemovePlayerWaypoint()
+        end
+
+        self:PopCurrentMap()
+
+        scale = adapter.zoneWorldScale[zoneId]
+        assert(scale, "Can not measure zone")
+    end
+    return scale
 end

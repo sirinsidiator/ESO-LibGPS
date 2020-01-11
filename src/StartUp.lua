@@ -16,6 +16,33 @@ lib.internal = {
     TAMRIEL_MAP_INDEX = 1,
 }
 
+function lib.internal:InitializeSaveData()
+    local saveData = LibGPS_Data
+
+    if(not saveData or saveData.version ~= VERSION or saveData.apiVersion ~= GetAPIVersion()) then
+        self.logger:Info("Creating new saveData")
+        saveData = {
+            version = VERSION,
+            apiVersion = GetAPIVersion(),
+            measurements = {},
+            zoneWorldScale = {}
+        }
+    end
+
+    for id, data in pairs(self.meter.savedMeasurements) do
+        saveData.measurements[id] = data
+    end
+    self.meter.savedMeasurements = saveData.measurements
+
+    for id, data in pairs(self.mapAdapter.zoneWorldScale) do
+        saveData.zoneWorldScale[id] = data
+    end
+    self.mapAdapter.zoneWorldScale = saveData.zoneWorldScale
+
+    LibGPS_Data = saveData
+    self.saveData = saveData
+end
+
 function lib.internal:Initialize()
     local class = self.class
     local logger = self.logger
@@ -43,13 +70,13 @@ function lib.internal:Initialize()
     measurement:SetMapIndex(TAMRIEL_MAP_INDEX)
     meter:SetMeasurement(measurement, true)
 
-    SetMapToPlayerLocation() -- initial measurement so we can get back to where we are currently
 
     EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER, EVENT_ADD_ON_LOADED, function(event, name)
         if(name ~= "LibGPS") then return end
         EVENT_MANAGER:UnregisterForEvent(LIB_IDENTIFIER, EVENT_ADD_ON_LOADED)
-        meter:InitializeSaveData()
+        internal:InitializeSaveData()
         logger:Debug("Saved Variables loaded")
+        SetMapToPlayerLocation() -- initial measurement so we can get back to where we are currently
     end)
 
     SLASH_COMMANDS["/libgpsreset"] = function()

@@ -2,11 +2,10 @@
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
-if not LibStub then return end
-
-local MAJOR, MINOR = "LibGPS2", 18
-local lib = LibStub:NewLibrary(MAJOR, MINOR)
+local MAJOR, MINOR = "LibGPS2", 19
+local lib = LibStub and LibStub:NewLibrary(MAJOR, MINOR)
 assert(lib, "LibGPS2 compatibility layer was loaded more than once. Please ensure that its files are not included from other addons.")
+lib = lib or {}
 LibGPS2 = lib
 
 local libv3 = LibGPS3

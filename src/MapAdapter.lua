@@ -17,11 +17,13 @@ end
 function MapAdapter:Initialize()
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
+    self.zoneWorldScale = {}
     self.original = {}
     self:HookSetMapToFunction("SetMapToQuestCondition")
     self:HookSetMapToFunction("SetMapToQuestStepEnding")
     self:HookSetMapToFunction("SetMapToQuestZone")
     self:HookSetMapToFunction("SetMapToMapListIndex")
+    self:HookSetMapToFunction("SetMapToAutoMapNavigationTargetPosition")
     self:HookSetMapToFunction("SetMapToPlayerLocation")
     self:HookSetMapToFunction("ProcessMapClick", true, true) -- Returning is done via clicking already
     self:HookSetMapToFunction("SetMapFloor", true)
@@ -97,6 +99,10 @@ end
 
 function MapAdapter:GetPlayerPosition()
     return GetMapPlayerPosition("player")
+end
+
+function MapAdapter:GetPlayerWorldPosition()
+    return GetUnitWorldPosition("player")
 end
 
 function MapAdapter:GetCurrentMapIndex()

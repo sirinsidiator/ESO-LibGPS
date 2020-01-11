@@ -128,4 +128,9 @@ function lib:PopCurrentMap()
     return internal.meter:PopCurrentMap()
 end
 
+--- Returns the current size of Tamriel in world-units.
+function lib:GetCurrentWorldSize()
+    return internal.meter:GetCurrentWorldSize()
+end
+
 internal:Initialize()
