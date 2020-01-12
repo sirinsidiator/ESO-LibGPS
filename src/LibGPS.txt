@@ -4,7 +4,6 @@
 ## AddOnVersion: @ADDON_VERSION@
 ## APIVersion: @API_VERSION@
 ## DependsOn: LibMapPing LibDebugLogger LibChatMessage
-## OptionalDependsOn: LibStub
 ## SavedVariables: LibGPS_Data
 ##
 ## This Add-on is not created by, affiliated with or sponsored by ZeniMax Media Inc. or its affiliates.
