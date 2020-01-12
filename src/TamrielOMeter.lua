@@ -176,7 +176,6 @@ function TamrielOMeter:CalculateMapMeasurements(returnToInitialMap)
     self:SetMeasuring(true)
 
     -- check some facts about the current map, so we can reset it later
-    -- local oldMapIsZoneMap, oldMapFloor, oldMapFloorCount
     if(returnToInitialMap) then
         self:PushCurrentMap()
     end
@@ -319,7 +318,6 @@ function TamrielOMeter:GetCurrentWorldSize()
         self:SetMeasuring(true)
 
         -- check some facts about the current map, so we can reset it later
-        -- local oldMapIsZoneMap, oldMapFloor, oldMapFloorCount
         self:PushCurrentMap()
 
         local waypointManager = self.waypointManager
@@ -338,7 +336,10 @@ function TamrielOMeter:GetCurrentWorldSize()
         self:PopCurrentMap()
 
         scale = adapter.zoneWorldScale[zoneId]
-        assert(scale, "Can not measure zone")
+        if not scale then
+            logger:Warn("Can not measure zone")
+            scale = DEFAULT_TAMRIEL_SIZE
+        end
     end
     return scale
 end
