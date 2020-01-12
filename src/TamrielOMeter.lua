@@ -32,6 +32,11 @@ function TamrielOMeter:Initialize(adapter)
     self.savedMeasurements = {}
     self.rootMaps = {}
     self.measuring = false
+    self.unitZoneId = 0
+
+    EVENT_MANAGER:RegisterForEvent("LibGPS3", EVENT_PLAYER_ACTIVATED, function()
+        self.unitZoneId = adapter:GetPlayerWorldPosition()
+    end)
 
     self:RegisterRootMap(TAMRIEL_MAP_INDEX) -- Tamriel
     self:RegisterRootMap(GetMapIndexByZoneId(347)) -- Coldhabour
@@ -295,7 +300,7 @@ end
 
 function TamrielOMeter:GetCurrentWorldSize()
     local adapter = self.adapter
-    local zoneId = adapter:GetPlayerWorldPosition()
+    local zoneId = self.unitZoneId
     local scale = adapter.zoneWorldScale[zoneId]
     if not scale then
         -- This can happend, e.g. by porting
@@ -343,3 +348,17 @@ function TamrielOMeter:GetCurrentWorldSize()
     end
     return scale
 end
+
+function TamrielOMeter:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
+    lx1, ly1 = lx1 - lx2, ly1 - ly2
+	local worldSize = self:GetCurrentWorldSize()
+    local measurement = self:GetCurrentMapMeasurements()
+	return math.sqrt(lx1*lx1 + ly1*ly1) * (measurement.scaleX + measurement.scaleY) * 0.005 * worldSize
+end
+
+function TamrielOMeter:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
+    gx1, gy1 = gx1 - gx2, gy1 - gy2
+	local worldSize = self:GetCurrentWorldSize()
+	return math.sqrt(gx1*gx1 + gy1*gy1) * 0.01 * worldSize
+end
+
