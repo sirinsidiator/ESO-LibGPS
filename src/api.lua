@@ -143,4 +143,14 @@ function lib:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
     return internal.meter:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
 end
 
+--- Returns how much greater the level is compared to its size on the map.
+function lib:GetWorldGlobalRatio()
+    return internal.meter:GetWorldGlobalRatio()
+end
+
+--- Returns how much smaller global scaled values must be to fit the current level.
+function lib:GetGlobalWorldRatio()
+    return internal.meter:GetGlobalWorldRatio()
+end
+
 internal:Initialize()

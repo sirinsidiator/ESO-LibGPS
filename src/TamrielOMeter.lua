@@ -362,13 +362,6 @@ function TamrielOMeter:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
     return math.sqrt(gx1*gx1 + gy1*gy1) * 0.01 * worldSize
 end
 
-function TamrielOMeter:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
-    lx1, ly1 = lx1 - lx2, ly1 - ly2
-    local worldSize = self:GetCurrentWorldSize()
-    local measurement = self:GetCurrentMapMeasurements()
-    return math.sqrt(lx1*lx1 + ly1*ly1) * (measurement.scaleX + measurement.scaleY) * 0.005 * worldSize
-end
-
 function TamrielOMeter:GetWorldGlobalRatio()
     return self:GetCurrentWorldSize() / DEFAULT_TAMRIEL_SIZE
 end
