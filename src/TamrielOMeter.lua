@@ -246,7 +246,7 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
     local dnx, dny = x2 - x1, y2 - y1
     local scale = math.sqrt((dwx*dwx+dwy*dwy)/(dnx*dnx+dny*dny))
     -- smooth value to get a nice "2500000" for zone maps
-    adapter.zoneWorldScale[zoneId] = math.floor(scale * 0.25 + 0.125) * 4
+    adapter.zoneIdWorldSize[zoneId] = math.floor(scale * 0.25 + 0.125) * 4
 
     -- calculate scale and offset for all maps that we saw
     local scaleX, scaleY, offsetX, offsetY
@@ -301,7 +301,7 @@ end
 function TamrielOMeter:GetCurrentWorldSize()
     local adapter = self.adapter
     local zoneId = self.unitZoneId or adapter:GetPlayerWorldPosition()
-    local scale = adapter.zoneWorldScale[zoneId]
+    local scale = adapter.zoneIdWorldSize[zoneId]
     if not scale then
         -- This can happend, e.g. by porting
         -- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
@@ -340,7 +340,7 @@ function TamrielOMeter:GetCurrentWorldSize()
 
         self:PopCurrentMap()
 
-        scale = adapter.zoneWorldScale[zoneId]
+        scale = adapter.zoneIdWorldSize[zoneId]
         if not scale then
             logger:Warn("Can not measure zone")
             scale = DEFAULT_TAMRIEL_SIZE

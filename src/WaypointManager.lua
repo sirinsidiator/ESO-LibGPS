@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ function WaypointManager:SetPlayerWaypoint(x, y)
     if(measurement) then
         local zoneId, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
         local playerX, playerY = self.adapter:GetPlayerPosition()
-        local scale = self.adapter.zoneWorldScale[zoneId] * measurement.scaleX
+        local scale = self.adapter.zoneIdWorldSize[zoneId] * measurement.scaleX
         local worldX, worldY = (x-playerX) * scale + pwx, (y-playerY) * scale + pwy
         return SetPlayerWaypointByWorldLocation(worldX, pwh, worldY)
     else
@@ -126,7 +126,7 @@ function WaypointManager:RestorePlayerWaypoint()
         end
 
         local zoneId, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
-        local scale = self.adapter.zoneWorldScale[zoneId] * (measurement.scaleX + measurement.scaleY) * 0.5
+        local scale = self.adapter.zoneIdWorldSize[zoneId] * (measurement.scaleX + measurement.scaleY) * 0.5
         local worldX, worldY = (self.x-self.playerX) * scale + pwx, (self.y-self.playerY) * scale + pwy
 
         wasSet = SetPlayerWaypointByWorldLocation(worldX, pwh, worldY)

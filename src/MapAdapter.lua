@@ -17,7 +17,7 @@ end
 function MapAdapter:Initialize()
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
-    self.zoneWorldScale = {}
+    self.zoneIdWorldSize = {}
     self.original = {}
     self:HookSetMapToFunction("SetMapToQuestCondition")
     self:HookSetMapToFunction("SetMapToQuestStepEnding")

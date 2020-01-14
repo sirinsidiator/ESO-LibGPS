@@ -25,7 +25,7 @@ function lib.internal:InitializeSaveData()
             version = VERSION,
             apiVersion = GetAPIVersion(),
             measurements = {},
-            zoneWorldScale = {}
+            zoneIdWorldSize = {}
         }
     end
 
@@ -34,10 +34,10 @@ function lib.internal:InitializeSaveData()
     end
     self.meter.savedMeasurements = saveData.measurements
 
-    for id, data in pairs(self.mapAdapter.zoneWorldScale) do
-        saveData.zoneWorldScale[id] = data
+    for id, data in pairs(self.mapAdapter.zoneIdWorldSize) do
+        saveData.zoneIdWorldSize[id] = data
     end
-    self.mapAdapter.zoneWorldScale = saveData.zoneWorldScale
+    self.mapAdapter.zoneIdWorldSize = saveData.zoneIdWorldSize
 
     LibGPS_Data = saveData
     self.saveData = saveData
