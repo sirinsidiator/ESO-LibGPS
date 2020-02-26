@@ -736,10 +736,14 @@ end
 Initialize()
 
 local function InitializeSaveData()
-    local VERSION = 2
-    LibGPS_Data = LibGPS_Data or {apiVersion = GetAPIVersion(), version = VERSION}
-	if #lib.mapMeasurements > 0 then LogMessage(LOG_DEBUG, "Measurements before loading") end
-    if LibGPS_Data.apiVersion == GetAPIVersion() and LibGPS_Data.version == VERSION and LibGPS_Data.measurements then
+    local VERSION = 3
+    local apiVersion = GetAPIVersion()
+    LibGPS_Data = LibGPS_Data or {apiVersion = apiVersion, version = VERSION}
+    if #lib.mapMeasurements > 0 then LogMessage(LOG_DEBUG, "Measurements before loading") end
+    if LibGPS_Data.apiVersion ~= apiVersion or LibGPS_Data.version ~= VERSION then
+        LibGPS_Data.apiVersion = apiVersion
+        LibGPS_Data.version = VERSION
+    elseif LibGPS_Data.measurements then
         ZO_ShallowTableCopy(LibGPS_Data.measurements, lib.mapMeasurements)
     end
     LibGPS_Data.measurements = lib.mapMeasurements
