@@ -1,4 +1,4 @@
--- LibGPS2 & its files © sirinsidiator                          --
+-- LibGPS2 & its files ï¿½ sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -95,7 +95,7 @@ local function ClearCurrentWaypoint()
 end
 
 local function RestoreCurrentWaypoint()
-   if(not currentWaypointMapId) then
+    if(not currentWaypointMapId) then
         LogMessage(LOG_DEBUG, "Called RestoreCurrentWaypoint without stored waypoint.")
         return
     end
@@ -131,6 +131,8 @@ local function SetMeasurementWaypoint(localX, localY)
 
     local _, pwx, pwh, pwy = GetUnitWorldPosition("player")
     local x, y = 1, 1
+    if(math.abs(pwx - x) < 10000) then x = pwx + 10000 end
+    if(math.abs(pwy - y) < 10000) then y = pwy + 10000 end
     if not SetPlayerWaypointByWorldLocation(x, pwh, y) then
         LogMessage(LOG_WARNING, "Cannot set reference waypoint")
         ClearCurrentWaypoint()
@@ -186,6 +188,7 @@ local function CalculateMeasurements(mapId, localX, localY)
 
     -- add local points to seen maps
     local measurementPositions = {}
+    lib.measurementPositions = measurementPositions
     table.insert(measurementPositions, { mapId = mapId, pX = localX, pY = localY, wpX = wpX, wpY = wpY })
 
     -- switch to zone map in order to get the mapIndex for the current location
@@ -477,15 +480,7 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
         LogMessage("Called from", GetAddon(), "for", mapId)
     end
 
-    -- get the player position on the current map
-    local localX, localY = GetPlayerPosition()
-    if (localX == 0 and localY == 0) then
-        -- cannot take measurements while player position is not initialized
-        return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
-    end
-
     returnToInitialMap = (returnToInitialMap ~= false)
-
     measuring = true
     CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, measuring)
 
@@ -495,7 +490,7 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
         lib:PushCurrentMap()
     end
 
-    local mapIndex, hasWaypoint = CalculateMeasurements(mapId, localX, localY)
+    local mapIndex, hasWaypoint = CalculateMeasurements(mapId, GetPlayerPosition())
 
     -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
     if(hasWaypoint) then
