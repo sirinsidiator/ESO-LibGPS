@@ -425,7 +425,7 @@ end
 
 --- Removes all cached measurement values.
 function lib:ClearMapMeasurements()
-    mapMeasurements = { }
+    ZO_ClearTable(mapMeasurements)
 end
 
 --- Removes the cached measurement values for the map that is currently active.
