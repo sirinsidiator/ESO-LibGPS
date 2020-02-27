@@ -3,10 +3,15 @@
 ------------------------------------------------------------------
 
 local LIB_NAME = "LibGPS2"
-local lib = LibStub and LibStub:NewLibrary(LIB_NAME, 999) -- only for test purposes. releases will get a smaller number
 
-if LibStub and not lib then
-    return -- already loaded and no upgrade necessary
+local lib
+if(not LibStub) then
+    lib = {}
+else
+    lib = LibStub:NewLibrary(LIB_NAME, 999) -- only for test purposes. releases will get a smaller number
+    if not lib then
+        return -- already loaded and no upgrade necessary
+    end
 end
 
 local LMP = LibMapPing
