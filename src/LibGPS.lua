@@ -485,7 +485,15 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
         LogMessage("Called from", GetAddon(), "for", mapId)
     end
 
+    -- get the player position on the current map
+    local localX, localY = GetPlayerPosition()
+    if (localX == 0 and localY == 0) then
+        -- cannot take measurements while player position is not initialized
+        return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
+    end
+
     returnToInitialMap = (returnToInitialMap ~= false)
+
     measuring = true
     CALLBACK_MANAGER:FireCallbacks(lib.LIB_EVENT_STATE_CHANGED, measuring)
 
@@ -495,7 +503,7 @@ function lib:CalculateMapMeasurements(returnToInitialMap)
         lib:PushCurrentMap()
     end
 
-    local mapIndex, hasWaypoint = CalculateMeasurements(mapId, GetPlayerPosition())
+    local mapIndex, hasWaypoint = CalculateMeasurements(mapId, localX, localY)
 
     -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
     if(hasWaypoint) then
@@ -741,7 +749,7 @@ end
 Initialize()
 
 local function InitializeSaveData()
-    local VERSION = 3
+    local VERSION = 4
     local apiVersion = GetAPIVersion()
     LibGPS_Data = LibGPS_Data or {apiVersion = apiVersion, version = VERSION}
     if #lib.mapMeasurements > 0 then LogMessage(LOG_DEBUG, "Measurements before loading") end
