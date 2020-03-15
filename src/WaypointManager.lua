@@ -75,6 +75,8 @@ function WaypointManager:SetMeasurementWaypoint(localX, localY)
     self.LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 
     local x, y = 1, 1
+    if(math.abs(pwx - x) < 10000) then x = pwx + 10000 end
+    if(math.abs(pwy - y) < 10000) then y = pwy + 10000 end
     if not SetPlayerWaypointByWorldLocation(x, 1, y) then
         logger:Warn("Cannot set reference waypoint")
         self:ClearPlayerWaypoint()
