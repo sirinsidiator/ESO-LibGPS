@@ -69,14 +69,12 @@ function WaypointManager:RemovePlayerWaypoint()
     self.LMP:RemoveMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 end
 
-function WaypointManager:SetMeasurementWaypoint(localX, localY)
+function WaypointManager:SetMeasurementWaypoint()
     -- this waypoint stays invisible for others
     self.suppressCount = self.suppressCount + 1
     self.LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 
-    local x, y = 1, 1
-    if(math.abs(pwx - x) < 10000) then x = pwx + 10000 end
-    if(math.abs(pwy - y) < 10000) then y = pwy + 10000 end
+    local x, y = 10000, 10000
     if not SetPlayerWaypointByWorldLocation(x, 1, y) then
         logger:Warn("Cannot set reference waypoint")
         self:ClearPlayerWaypoint()
