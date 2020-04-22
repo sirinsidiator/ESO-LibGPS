@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ end
 function WaypointManager:Initialize(adapter, meter)
     self.adapter = adapter
     self.meter = meter
-    self.LMP = LibStub("LibMapPing")
+    self.LMP = LibMapPing
     self.suppressCount = 0
     self:ClearPlayerWaypoint()
 
@@ -48,7 +48,17 @@ function WaypointManager:GetPlayerWaypoint()
 end
 
 function WaypointManager:SetPlayerWaypoint(x, y)
-    return self.LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+    local id = self.adapter:GetCurrentMapIdentifier()
+    local measurement = self.meter:GetMeasurement(id)
+    if(measurement) then
+        local zoneId, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
+        local playerX, playerY = self.adapter:GetPlayerPosition()
+        local scale = self.adapter.zoneIdWorldSize[zoneId] * measurement.scaleX
+        local worldX, worldY = (x-playerX) * scale + pwx, (y-playerY) * scale + pwy
+        return SetPlayerWaypointByWorldLocation(worldX, pwh, worldY)
+    else
+        return self.LMP:SetMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT, MAP_TYPE_LOCATION_CENTERED, x, y)
+    end
 end
 
 function WaypointManager:HasPlayerWaypoint()
@@ -59,11 +69,20 @@ function WaypointManager:RemovePlayerWaypoint()
     self.LMP:RemoveMapPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
 end
 
-function WaypointManager:SetMeasurementWaypoint(x, y)
+function WaypointManager:SetMeasurementWaypoint()
     -- this waypoint stays invisible for others
     self.suppressCount = self.suppressCount + 1
     self.LMP:SuppressPing(MAP_PIN_TYPE_PLAYER_WAYPOINT)
-    self:SetPlayerWaypoint(x, y)
+
+    local x, y = 10000, 10000
+    if not SetPlayerWaypointByWorldLocation(x, 1, y) then
+        logger:Warn("Cannot set reference waypoint")
+        self:ClearPlayerWaypoint()
+        return 0, 0, false
+    end
+    local wpX, wpY = self:GetPlayerWaypoint()
+
+    return wpX, wpY
 end
 
 function WaypointManager:UnsuppressWaypoint()
@@ -79,11 +98,13 @@ end
 
 function WaypointManager:StorePlayerWaypoint()
     self.x, self.y = self:GetPlayerWaypoint()
+    self.playerX, self.playerY = self.adapter:GetPlayerPosition()
     self.id = self.adapter:GetCurrentMapIdentifier()
 end
 
 function WaypointManager:ClearPlayerWaypoint()
     self.x, self.y = 0, 0
+    self.playerX, self.playerY = 0, 0
     self.id = nil
 end
 
@@ -104,19 +125,13 @@ function WaypointManager:RestorePlayerWaypoint()
             return
         end
 
-        local x, y = measurement:ToGlobal(self.x, self.y)
+        local zoneId, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
+        local scale = self.adapter.zoneIdWorldSize[zoneId] * (measurement.scaleX + measurement.scaleY) * 0.5
+        local worldX, worldY = (self.x-self.playerX) * scale + pwx, (self.y-self.playerY) * scale + pwy
 
-        local rootMapMeasurement = self.meter:FindRootMapMeasurementForCoordinates(x, y)
-        if(rootMapMeasurement) then
-            if(self.adapter:SetMapToMapListIndexWithoutMeasuring(rootMapMeasurement:GetMapIndex()) ~= SET_MAP_RESULT_FAILED) then
-                x, y = rootMapMeasurement:ToLocal(x, y)
-                self:SetPlayerWaypoint(x, y)
-                wasSet = true
-            else
-                logger:Info("Cannot reset waypoint because switch to target root map failed")
-            end
-        else
-            logger:Info("Cannot reset waypoint because it was outside of our reach")
+        wasSet = SetPlayerWaypointByWorldLocation(worldX, pwh, worldY)
+        if (not wasSet) then
+            logger:Debug("Cannot reset waypoint")
         end
     end
 

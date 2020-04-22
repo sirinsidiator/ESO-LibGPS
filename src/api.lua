@@ -128,4 +128,29 @@ function lib:PopCurrentMap()
     return internal.meter:PopCurrentMap()
 end
 
+--- Returns the current size of Tamriel in world-units.
+function lib:GetCurrentWorldSize()
+    return internal.meter:GetCurrentWorldSize()
+end
+
+--- Returns the distance in meters of given local coords.
+function lib:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
+    return internal.meter:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
+end
+
+--- Returns the distance in meters of given global coords.
+function lib:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
+    return internal.meter:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
+end
+
+--- Returns how much greater the level is compared to its size on the map.
+function lib:GetWorldGlobalRatio()
+    return internal.meter:GetWorldGlobalRatio()
+end
+
+--- Returns how much smaller global scaled values must be to fit the current level.
+function lib:GetGlobalWorldRatio()
+    return internal.meter:GetGlobalWorldRatio()
+end
+
 internal:Initialize()
