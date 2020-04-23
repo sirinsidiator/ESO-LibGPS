@@ -1,7 +1,7 @@
 ## Title: LibGPS
 ## Author: sirinsidiator & votan
-## Version: 3.0 r@VERSION_NUMBER@
-## AddOnVersion: @ADDON_VERSION@
+## Version: @VERSION_NUMBER@
+## AddOnVersion: @BUILD_NUMBER@
 ## APIVersion: @API_VERSION@
 ## IsLibrary: true
 ## DependsOn: LibMapPing>=900 LibDebugLogger LibChatMessage
