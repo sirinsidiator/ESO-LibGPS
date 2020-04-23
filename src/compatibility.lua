@@ -56,11 +56,11 @@ function lib:ClearMapMeasurements()
 end
 
 function lib:ClearCurrentMapMeasurements()
-    return libv3:ClearCurrentMapMeasurements()
+    return libv3:ClearCurrentMapMeasurement()
 end
 
 function lib:GetCurrentMapMeasurements()
-    return libv3:GetCurrentMapMeasurements()
+    return libv3:GetCurrentMapMeasurement()
 end
 
 function lib:GetCurrentMapParentZoneIndices()
@@ -69,11 +69,11 @@ function lib:GetCurrentMapParentZoneIndices()
 end
 
 function lib:CalculateMapMeasurements(returnToInitialMap)
-    return libv3:CalculateMapMeasurements(returnToInitialMap)
+    return libv3:CalculateMapMeasurement(returnToInitialMap)
 end
 
 function lib:LocalToGlobal(x, y)
-    local measurement = libv3.internal.meter:GetCurrentMapMeasurements()
+    local measurement = libv3.internal.meter:GetCurrentMapMeasurement()
     if(measurement) then
         local x, y = measurement:ToGlobal(x, y)
         return x, y, measurement:GetMapIndex()
@@ -85,7 +85,7 @@ function lib:GlobalToLocal(x, y)
 end
 
 function lib:ZoneToGlobal(mapIndex, x, y)
-    lib:GetCurrentMapMeasurements()
+    lib:GetCurrentMapMeasurement()
     -- measurement done in here:
     SetMapToMapListIndex(mapIndex)
     x, y, mapIndex = lib:LocalToGlobal(x, y)

@@ -38,10 +38,10 @@ function MapAdapter:HookSetMapToFunction(funcName, returnToInitialMap, skipSecon
     self.original[funcName] = orgFunction
     _G[funcName] = function(...)
         local result = orgFunction(...)
-        if(result ~= SET_MAP_RESULT_MAP_FAILED and not lib:GetCurrentMapMeasurements()) then
+        if(result ~= SET_MAP_RESULT_MAP_FAILED and not lib:GetCurrentMapMeasurement()) then
             logger:Debug(funcName)
 
-            local success, mapResult = lib:CalculateMapMeasurements(returnToInitialMap)
+            local success, mapResult = lib:CalculateMapMeasurement(returnToInitialMap)
             if(mapResult ~= SET_MAP_RESULT_CURRENT_MAP_UNCHANGED) then
                 result = mapResult
             end

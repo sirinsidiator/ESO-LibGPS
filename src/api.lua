@@ -24,18 +24,15 @@ function lib:ClearMapMeasurements()
     internal.meter:Reset()
 end
 
---- Removes the cached measurement values for the map that is currently active.
-function lib:ClearCurrentMapMeasurements()
-    internal.meter:ClearCurrentMapMeasurements()
+--- Removes the cached measurement for the map that is currently active.
+function lib:ClearCurrentMapMeasurement()
+    internal.meter:ClearCurrentMapMeasurement()
 end
 
---- Returns a table with the measurement values for the active map or nil if the measurements could not be calculated for some reason.
---- The table contains scaleX, scaleY, offsetX, offsetY and mapIndex.
---- scaleX and scaleY are the dimensions of the active map on the Tamriel map.
---- offsetX and offsetY are the offset of the top left corner on the Tamriel map.
---- mapIndex is the mapIndex of the parent zone of the current map.
-function lib:GetCurrentMapMeasurements()
-    return internal.meter:GetCurrentMapMeasurements()
+--- Returns a Measurement object for the active map or nil if the measurement could not be calculated for some reason.
+--- See Measurement.lua for details on the return value.
+function lib:GetCurrentMapMeasurement()
+    return internal.meter:GetCurrentMapMeasurement()
 end
 
 --- Returns the mapIndex and zoneIndex of the parent zone for the currently set map.
@@ -43,7 +40,7 @@ end
 --- return[2] number - The zoneIndex of the parent zone
 --- return[3] number - The zoneId of the parent zone
 function lib:GetCurrentMapParentZoneIndices()
-    local measurement = internal.meter:GetCurrentMapMeasurements()
+    local measurement = internal.meter:GetCurrentMapMeasurement()
     local mapIndex = measurement:GetMapIndex()
     local zoneId = measurement:GetZoneId()
 
@@ -59,18 +56,18 @@ function lib:GetCurrentMapParentZoneIndices()
     return mapIndex, zoneIndex, zoneId
 end
 
---- Calculates the measurements for the current map and all parent maps.
+--- Calculates the measurement for the current map and all parent maps.
 --- This method does nothing if there is already a cached measurement for the active map.
 --- return[1] boolean - True, if a valid measurement was calculated
 --- return[2] SetMapResultCode - Specifies if the map has changed or failed during measurement (independent of the actual result of the measurement)
-function lib:CalculateMapMeasurements(returnToInitialMap)
-    return internal.meter:CalculateMapMeasurements(returnToInitialMap)
+function lib:CalculateMapMeasurement(returnToInitialMap)
+    return internal.meter:CalculateMapMeasurement(returnToInitialMap)
 end
 
 --- Converts the given map coordinates on the current map into coordinates on the Tamriel map.
 --- Returns x and y on the world map or nil if the measurements of the active map are not available.
 function lib:LocalToGlobal(x, y)
-    local measurement = internal.meter:GetCurrentMapMeasurements()
+    local measurement = internal.meter:GetCurrentMapMeasurement()
     if(measurement) then
         return measurement:ToGlobal(x, y)
     end
@@ -79,7 +76,7 @@ end
 --- Converts the given global coordinates into a position on the active map.
 --- Returns x and y on the current map or nil if the measurements of the active map are not available.
 function lib:GlobalToLocal(x, y)
-    local measurement = internal.meter:GetCurrentMapMeasurements()
+    local measurement = internal.meter:GetCurrentMapMeasurement()
     if(measurement) then
         return measurement:ToLocal(x, y)
     end
@@ -134,13 +131,13 @@ function lib:GetCurrentWorldSize()
 end
 
 --- Returns the distance in meters of given local coords.
-function lib:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
-    return internal.meter:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
+function lib:GetLocalDistanceInMeters(lx1, ly1, lx2, ly2)
+    return internal.meter:GetLocalDistanceInMeters(lx1, ly1, lx2, ly2)
 end
 
 --- Returns the distance in meters of given global coords.
-function lib:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
-    return internal.meter:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
+function lib:GetGlobalDistanceInMeters(gx1, gy1, gx2, gy2)
+    return internal.meter:GetGlobalDistanceInMeters(gx1, gy1, gx2, gy2)
 end
 
 --- Returns how much greater the level is compared to its size on the map.

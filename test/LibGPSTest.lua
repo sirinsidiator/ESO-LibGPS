@@ -94,14 +94,14 @@ function TestLibGPS:testGetMapFunctionsLocal()
 end
 
 -- test the actual library
-function TestLibGPS:testGetCurrentMapMeasurementsZoneA()
+function TestLibGPS:testGetCurrentMapMeasurementZoneA()
 	currentMap = maps.zoneA
 	pX, pY = 0.25, 0.25
 
 	gps:CalculateCurrentMapMeasurements()
 	currentMap = maps.zoneA
 
-	local measurements = gps:GetCurrentMapMeasurements()
+	local measurements = gps:GetCurrentMapMeasurement()
 	assertEquals(measurements.mapIndex, 2)
 	assertEqualsDelta(measurements.scaleX, 0.5, 1e-10)
 	assertEqualsDelta(measurements.scaleY, 0.5, 1e-10)
@@ -109,14 +109,14 @@ function TestLibGPS:testGetCurrentMapMeasurementsZoneA()
 	assertEqualsDelta(measurements.offsetY, 0, 1e-10)
 end
 
-function TestLibGPS:testGetCurrentMapMeasurementsDungeonA()
+function TestLibGPS:testGetCurrentMapMeasurementDungeonA()
 	currentMap = maps.dungeonA
 	pX, pY = 0.125, 0.125
 
 	gps:CalculateCurrentMapMeasurements()
 	currentMap = maps.dungeonA
 
-	local measurements = gps:GetCurrentMapMeasurements()
+	local measurements = gps:GetCurrentMapMeasurement()
 	assertEquals(measurements.mapIndex, 2)
 	assertEqualsDelta(measurements.scaleX, 0.25, 1e-10)
 	assertEqualsDelta(measurements.scaleY, 0.25, 1e-10)
@@ -218,7 +218,7 @@ function TestLibGPS:testCreateMeasurementsPlayerOnRightBottomMapBorder()
 	gps:CalculateCurrentMapMeasurements()
 	currentMap = maps.dungeonA
 
-	local measurements = gps:GetCurrentMapMeasurements()
+	local measurements = gps:GetCurrentMapMeasurement()
 	assertEquals(measurements.mapIndex, 2)
 	assertEqualsDelta(measurements.scaleX, 0.25, 1e-10)
 	assertEqualsDelta(measurements.scaleY, 0.25, 1e-10)

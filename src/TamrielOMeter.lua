@@ -105,7 +105,7 @@ function TamrielOMeter:GetReferencePoints()
     return x1, y1, x2, y2
 end
 
-function TamrielOMeter:ClearCurrentMapMeasurements()
+function TamrielOMeter:ClearCurrentMapMeasurement()
     local mapId = self.adapter:GetCurrentMapIdentifier()
     local measurement = self:GetMeasurement(mapId)
 
@@ -117,13 +117,13 @@ function TamrielOMeter:ClearCurrentMapMeasurements()
     end
 end
 
-function TamrielOMeter:GetCurrentMapMeasurements()
+function TamrielOMeter:GetCurrentMapMeasurement()
     local mapId = self.adapter:GetCurrentMapIdentifier()
     local measurement = self:GetMeasurement(mapId)
 
     if (not measurement) then
-        -- try to calculate the measurements if they are not yet available
-        self:CalculateMapMeasurements()
+        -- try to calculate the measurement if they are not yet available
+        self:CalculateMapMeasurement()
     end
 
     return self.measurements[mapId]
@@ -157,7 +157,7 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
     return measurement
 end
 
-function TamrielOMeter:CalculateMapMeasurements(returnToInitialMap)
+function TamrielOMeter:CalculateMapMeasurement(returnToInitialMap)
     local adapter = self.adapter
 
     -- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
@@ -174,7 +174,7 @@ function TamrielOMeter:CalculateMapMeasurements(returnToInitialMap)
         return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
     end
 
-    logger:Debug("CalculateMapMeasurements for", mapId)
+    logger:Debug("CalculateMapMeasurement for", mapId)
 
     returnToInitialMap = (returnToInitialMap ~= false)
 
@@ -349,14 +349,14 @@ function TamrielOMeter:GetCurrentWorldSize()
     return scale
 end
 
-function TamrielOMeter:GetLocalDistanceInMeter(lx1, ly1, lx2, ly2)
+function TamrielOMeter:GetLocalDistanceInMeters(lx1, ly1, lx2, ly2)
     lx1, ly1 = lx1 - lx2, ly1 - ly2
     local worldSize = self:GetCurrentWorldSize()
-    local measurement = self:GetCurrentMapMeasurements()
+    local measurement = self:GetCurrentMapMeasurement()
     return math.sqrt(lx1*lx1 + ly1*ly1) * (measurement.scaleX + measurement.scaleY) * 0.005 * worldSize
 end
 
-function TamrielOMeter:GetGlobalDistanceInMeter(gx1, gy1, gx2, gy2)
+function TamrielOMeter:GetGlobalDistanceInMeters(gx1, gy1, gx2, gy2)
     gx1, gy1 = gx1 - gx2, gy1 - gy2
     local worldSize = self:GetCurrentWorldSize()
     return math.sqrt(gx1*gx1 + gy1*gy1) * 0.01 * worldSize

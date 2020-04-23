@@ -5,6 +5,8 @@
 local lib = LibGPS3
 local logger = lib.internal.logger
 
+--- This object contains all the data about a map measurement and offers some convenience functions to interact with them.
+--- Undocumented methods are for internal use only.
 local Measurement = ZO_Object:Subclass()
 lib.internal.class.Measurement = Measurement
 
@@ -25,6 +27,7 @@ function Measurement:Initialize()
     self.offsetY = 0
 end
 
+--- Returns a unique id for the measurement which is used to store it in the saved variables. Details are implementation specific and may change between versions.
 function Measurement:GetId()
     return self.id
 end
@@ -37,6 +40,7 @@ function Measurement:SetMapIndex(mapIndex)
     self.mapIndex = mapIndex
 end
 
+--- Returns the mapIndex or nil if the measured map doesn't have one.
 function Measurement:GetMapIndex()
     return self.mapIndex
 end
@@ -45,6 +49,7 @@ function Measurement:SetZoneId(zoneId)
     self.zoneId = zoneId
 end
 
+--- Returns the zoneId for the measurement. Keep in mind that a map can have multiple zoneIds within its borders and a zoneId can also span multiple maps.
 function Measurement:GetZoneId()
     return self.zoneId
 end
@@ -59,28 +64,33 @@ function Measurement:SetOffset(offsetX, offsetY)
     self.offsetY = offsetY
 end
 
+--- Returns true if the measurement contains valid data.
 function Measurement:IsValid()
     return self.id and self.mapIndex > 0 and self.zoneId > 0
 end
 
+--- Converts and returns global coordinates for a given local coordinate pair.
 function Measurement:ToGlobal(x, y)
     x = x * self.scaleX + self.offsetX
     y = y * self.scaleY + self.offsetY
     return x, y
 end
 
+-- Converts and returns local coordinates for a given global coordinate pair.
 function Measurement:ToLocal(x, y)
     x = (x - self.offsetX) / self.scaleX
     y = (y - self.offsetY) / self.scaleY
     return x, y
 end
 
+--- Returns the center of the measured map as global coordinates.
 function Measurement:GetCenter()
     local x = self.offsetX + (self.scaleX / 2)
     local y = self.offsetY + (self.scaleY / 2)
     return x, y
 end
 
+--- Returns true if the given global coordinates are inside the measured map.
 function Measurement:Contains(x, y)
     return not (x <= self.offsetX
         or x >= (self.offsetX + self.scaleX)
