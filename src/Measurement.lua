@@ -59,9 +59,19 @@ function Measurement:SetScale(scaleX, scaleY)
     self.scaleY = scaleY
 end
 
+--- Returns the scale in the global coordinate space for the current map.
+function Measurement:GetScale()
+    return self.scaleX, self.scaleY
+end
+
 function Measurement:SetOffset(offsetX, offsetY)
     self.offsetX = offsetX
     self.offsetY = offsetY
+end
+
+--- Returns the offset in the global coordinate space for the current map.
+function Measurement:GetOffset()
+    return self.offsetX, self.offsetY
 end
 
 --- Returns true if the measurement contains valid data.
