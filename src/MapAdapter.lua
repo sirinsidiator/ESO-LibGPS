@@ -24,9 +24,9 @@ function MapAdapter:Initialize()
     self:HookSetMapToFunction("SetMapToQuestZone")
     self:HookSetMapToFunction("SetMapToMapListIndex")
     self:HookSetMapToFunction("SetMapToAutoMapNavigationTargetPosition")
-	if SetMapToDigSitePosition then -- added with Greymoore update. Not available in Harrowstorm
-		self:HookSetMapToFunction("SetMapToDigSitePosition")
-	end
+    if SetMapToDigSitePosition then -- added with Greymoore update. Not available in Harrowstorm
+        self:HookSetMapToFunction("SetMapToDigSitePosition")
+    end
     self:HookSetMapToFunction("SetMapToPlayerLocation")
     self:HookSetMapToFunction("ProcessMapClick", true, true) -- Returning is done via clicking already
     self:HookSetMapToFunction("SetMapFloor", true)
