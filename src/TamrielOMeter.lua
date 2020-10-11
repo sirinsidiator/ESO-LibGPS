@@ -209,7 +209,7 @@ end
 function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
     local adapter = self.adapter
 
-    local wpX, wpY = self.waypointManager:SetMeasurementWaypoint(localX, localY)
+    local wpX, wpY = self.waypointManager:SetMeasurementWaypoint()
 
     -- add local points to seen maps
     local measurementPositions = {}
@@ -242,9 +242,10 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
 
     -- global size in WorldUnits for zoneId
     local zoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
-    local dwx, dwy = 1 - pwx, 1 - pwy
+    local distance = self.waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
+    distance = distance * distance * 2
     local dnx, dny = x2 - x1, y2 - y1
-    local scale = math.sqrt((dwx*dwx+dwy*dwy)/(dnx*dnx+dny*dny))
+    local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
     -- smooth value to get a nice "2500000" for zone maps
     adapter.zoneIdWorldSize[zoneId] = math.floor(scale * 0.25 + 0.125) * 4
 
