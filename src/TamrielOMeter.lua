@@ -11,6 +11,7 @@ local logger = internal.logger
 local mabs = math.abs
 
 local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
+local BLACKREACH_ROOT_MAP_INDEX = internal.BLACKREACH_ROOT_MAP_INDEX
 local SCALE_INACCURACY_WARNING_THRESHOLD = 1e-3
 local DEFAULT_TAMRIEL_SIZE = 2500000
 local MAP_CENTER = 0.5
@@ -38,6 +39,7 @@ function TamrielOMeter:Initialize(adapter)
         self.unitZoneId = adapter:GetPlayerWorldPosition()
     end)
 
+    self:RegisterRootMap(BLACKREACH_ROOT_MAP_INDEX) -- BlackReach
     self:RegisterRootMap(TAMRIEL_MAP_INDEX) -- Tamriel
     self:RegisterRootMap(GetMapIndexByZoneId(347)) -- Coldhabour
     self:RegisterRootMap(GetMapIndexByZoneId(980)) -- Clockwork City
@@ -241,13 +243,15 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
     x1, y1, x2, y2 = self:GetReferencePoints()
 
     -- global size in WorldUnits for zoneId
-    local zoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
-    local distance = self.waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
-    distance = distance * distance * 2
-    local dnx, dny = x2 - x1, y2 - y1
-    local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
-    -- smooth value to get a nice "2500000" for zone maps
-    adapter.zoneIdWorldSize[zoneId] = math.floor(scale * 0.25 + 0.125) * 4
+    local wZoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
+    if not adapter.zoneIdWorldSize[wZoneId] then
+        local distance = self.waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
+        distance = distance * distance * 2
+        local dnx, dny = x2 - x1, y2 - y1
+        local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
+        -- smooth value to get a nice "2500000" for zone maps
+        adapter.zoneIdWorldSize[wZoneId] = math.floor(scale * 0.25 + 0.125) * 4
+    end
 
     -- calculate scale and offset for all maps that we saw
     local scaleX, scaleY, offsetX, offsetY
