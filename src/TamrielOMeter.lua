@@ -242,17 +242,6 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
     -- get the two reference points on the world map
     x1, y1, x2, y2 = self:GetReferencePoints()
 
-    -- global size in WorldUnits for zoneId
-    local wZoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
-    if not adapter.zoneIdWorldSize[wZoneId] then
-        local distance = self.waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
-        distance = distance * distance * 2
-        local dnx, dny = x2 - x1, y2 - y1
-        local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
-        -- smooth value to get a nice "2500000" for zone maps
-        adapter.zoneIdWorldSize[wZoneId] = math.floor(scale * 0.25 + 0.125) * 4
-    end
-
     -- calculate scale and offset for all maps that we saw
     local scaleX, scaleY, offsetX, offsetY
     for i = 1, #measurementPositions do
@@ -275,6 +264,21 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
         measurement:SetScale(scaleX, scaleY)
         measurement:SetOffset(offsetX, offsetY)
         self:SetMeasurement(measurement, pos.rootMap)
+    end
+
+    -- global size in WorldUnits for zoneId
+    local wZoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
+    if not adapter.zoneIdWorldSize[wZoneId] then
+        local distance = self.waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
+        distance = distance * distance * 2
+        local dnx, dny = x2 - x1, y2 - y1
+        local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
+        local rootMap = self:FindRootMapMeasurementForCoordinates(x1, y1)
+        if rootMap.mapIndex ~= TAMRIEL_MAP_INDEX then
+            scale = scale * rootMap.scaleX / self:GetMeasurement(mapId).scaleX
+        end
+        -- smooth value to get a nice "2500000" for zone maps
+        adapter.zoneIdWorldSize[wZoneId] = math.floor(scale * 0.25 + 0.125) * 4
     end
 
     return mapIndex
@@ -326,29 +330,31 @@ function TamrielOMeter:GetCurrentWorldSize()
         logger:Debug("CalculateMapMeasurements for GetCurrentWorldSize in ", zoneId)
 
         self:SetMeasuring(true)
-
-        -- check some facts about the current map, so we can reset it later
-        self:PushCurrentMap()
-
         local waypointManager = self.waypointManager
         local hasWaypoint = waypointManager:HasPlayerWaypoint()
         if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
 
-        self:CalculateMeasurementsInternal(mapId, localX, localY)
+        local wpX, wpY = waypointManager:SetMeasurementWaypoint()
+
+        local gnpx, gnpy = lib:LocalToGlobal(localX, localY)
+        local gnwx, gnwy = lib:LocalToGlobal(wpX, wpY)
+        local gdx, gdy = gnpx - gnwx, gnpy - gnwy
+        local distance = waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
+        distance = distance * distance * 2
+        scale = math.sqrt(distance * (gdx * gdx + gdy * gdy))
+        local rootMap = internal.meter:FindRootMapMeasurementForCoordinates(gnpx, gnpy)
+        if rootMap:GetMapIndex() ~= TAMRIEL_MAP_INDEX then
+            scale = scale * self:GetMeasurement(mapId):GetScale() / rootMap:GetScale()
+        end
+        scale = math.floor(DEFAULT_TAMRIEL_SIZE * 80 / scale + 0.125) * 4 -- 80 = 320/4, 320 = Distance of waypoint distance on Tamriel map
+
+        adapter.zoneIdWorldSize[zoneId] = scale
 
         -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
         if(hasWaypoint) then
             waypointManager:RestorePlayerWaypoint()
         else
             waypointManager:RemovePlayerWaypoint()
-        end
-
-        self:PopCurrentMap()
-
-        scale = adapter.zoneIdWorldSize[zoneId]
-        if not scale then
-            logger:Warn("Can not measure zone")
-            scale = DEFAULT_TAMRIEL_SIZE
         end
     end
     return scale

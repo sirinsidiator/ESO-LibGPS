@@ -39,10 +39,6 @@ function lib.internal:InitializeSaveData()
         saveData.zoneIdWorldSize[id] = data
     end
     self.mapAdapter.zoneIdWorldSize = saveData.zoneIdWorldSize
-    local BLACKREACH_GREYMOOR_ZONE_ID = 1161
-    saveData.zoneIdWorldSize[BLACKREACH_GREYMOOR_ZONE_ID] = 5690744
-    local BLACKREACH_ARKTHZAND_ZONE_ID = 1208
-    saveData.zoneIdWorldSize[BLACKREACH_ARKTHZAND_ZONE_ID] = 3887360
 
     LibGPS_Data = saveData
     self.saveData = saveData
