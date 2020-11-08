@@ -14,6 +14,7 @@ lib.internal = {
     logger = LibDebugLogger(LIB_IDENTIFIER),
     chat = LibChatMessage(LIB_IDENTIFIER, "LGPS"),
     TAMRIEL_MAP_INDEX = 1,
+    BLACKREACH_ROOT_MAP_INDEX = 40,
 }
 
 function lib.internal:InitializeSaveData()
@@ -50,6 +51,7 @@ function lib.internal:Initialize()
     logger:Debug("Initializing LibGPS3...")
     local internal = lib.internal
     local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
+    local BLACKREACH_ROOT_MAP_INDEX = internal.BLACKREACH_ROOT_MAP_INDEX
 
     local mapAdapter = class.MapAdapter:New()
     local meter = class.TamrielOMeter:New(mapAdapter)
@@ -59,6 +61,20 @@ function lib.internal:Initialize()
 
     internal.mapAdapter = mapAdapter
     internal.meter = meter
+
+    if(mapAdapter:SetMapToMapListIndexWithoutMeasuring(BLACKREACH_ROOT_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
+        error("LibGPS could not switch to the Blackreach map for initialization")
+    end
+
+    local BLACKREACH_ROOT_MAP_ID = 1782
+    local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(BLACKREACH_ROOT_MAP_ID)
+    offsetY = offsetY + 0.14
+    local measurement = class.Measurement:New()
+    measurement:SetId(mapAdapter:GetCurrentMapIdentifier())
+    measurement:SetMapIndex(BLACKREACH_ROOT_MAP_INDEX)
+    measurement:SetOffset(offsetX, offsetY)
+    measurement:SetScale(scaleX, scaleY)
+    meter:SetMeasurement(measurement, true)
 
     if(mapAdapter:SetMapToMapListIndexWithoutMeasuring(TAMRIEL_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
         error("LibGPS could not switch to the Tamriel map for initialization")

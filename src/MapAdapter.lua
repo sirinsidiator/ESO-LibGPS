@@ -105,7 +105,7 @@ function MapAdapter:GetPlayerPosition()
 end
 
 function MapAdapter:GetPlayerWorldPosition()
-    return GetUnitWorldPosition("player")
+    return GetUnitRawWorldPosition("player")
 end
 
 function MapAdapter:GetCurrentMapIndex()
