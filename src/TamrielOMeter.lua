@@ -160,9 +160,6 @@ end
 function TamrielOMeter:CalculateMapMeasurement(returnToInitialMap)
     local adapter = self.adapter
 
-    -- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
-    if(adapter:IsCurrentMapCosmicMap()) then return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED end
-
     -- no need to take measurements more than once
     local mapId = adapter:GetCurrentMapIdentifier()
     if(mapId == "" or self:GetMeasurement(mapId)) then return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED end
@@ -305,8 +302,6 @@ function TamrielOMeter:GetCurrentWorldSize()
     local scale = adapter.zoneIdWorldSize[zoneId]
     if not scale then
         -- This can happend, e.g. by porting
-        -- cosmic map cannot be measured (GetMapPlayerWaypoint returns 0,0)
-        if(adapter:IsCurrentMapCosmicMap()) then return DEFAULT_TAMRIEL_SIZE end
 
         -- no need to take measurements more than once
         local mapId = adapter:GetCurrentMapIdentifier()
