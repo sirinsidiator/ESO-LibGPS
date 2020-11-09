@@ -271,8 +271,10 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
         local dnx, dny = x2 - x1, y2 - y1
         local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
         local rootMap = self:FindRootMapMeasurementForCoordinates(x1, y1)
-        if rootMap.mapIndex ~= TAMRIEL_MAP_INDEX then
-            scale = scale * rootMap.scaleX / self:GetMeasurement(mapId).scaleX
+        if rootMap:GetMapIndex() ~= TAMRIEL_MAP_INDEX then
+            local rootScale = rootMap:GetScale()
+            local mapScale = self:GetMeasurement(mapId):GetScale()
+            scale = scale * rootScale / mapScale
         end
         -- smooth value to get a nice "2500000" for zone maps
         adapter.zoneIdWorldSize[wZoneId] = math.floor(scale * 0.25 + 0.125) * 4
@@ -339,7 +341,9 @@ function TamrielOMeter:GetCurrentWorldSize()
         scale = math.sqrt(distance * (gdx * gdx + gdy * gdy))
         local rootMap = internal.meter:FindRootMapMeasurementForCoordinates(gnpx, gnpy)
         if rootMap:GetMapIndex() ~= TAMRIEL_MAP_INDEX then
-            scale = scale * self:GetMeasurement(mapId):GetScale() / rootMap:GetScale()
+            local rootScale = rootMap:GetScale()
+            local mapScale = self:GetMeasurement(mapId):GetScale()
+            scale = scale * mapScale / rootScale
         end
         scale = math.floor(DEFAULT_TAMRIEL_SIZE * 80 / scale + 0.125) * 4 -- 80 = 320/4, 320 = Distance of waypoint distance on Tamriel map
 
