@@ -15,7 +15,7 @@ local BLACKREACH_ROOT_MAP_INDEX = internal.BLACKREACH_ROOT_MAP_INDEX
 local SCALE_INACCURACY_WARNING_THRESHOLD = 1e-3
 local DEFAULT_TAMRIEL_SIZE = 2500000
 local MAP_CENTER = 0.5
-local VERSION = 3
+local VERSION = 4
 
 local TamrielOMeter = ZO_Object:Subclass()
 internal.class.TamrielOMeter = TamrielOMeter
@@ -33,11 +33,6 @@ function TamrielOMeter:Initialize(adapter)
     self.savedMeasurements = {}
     self.rootMaps = {}
     self.measuring = false
-    self.unitZoneId = 0
-
-    EVENT_MANAGER:RegisterForEvent("LibGPS3", EVENT_PLAYER_ACTIVATED, function()
-        self.unitZoneId = adapter:GetPlayerWorldPosition()
-    end)
 
     self:RegisterRootMap(BLACKREACH_ROOT_MAP_INDEX) -- BlackReach
     self:RegisterRootMap(TAMRIEL_MAP_INDEX) -- Tamriel
@@ -132,15 +127,14 @@ function TamrielOMeter:GetCurrentMapMeasurement()
 end
 
 function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
-    local realMapId = GetMapIdByIndex(rootMapIndex)
-    local rootMapId = self.adapter:GetMapIdentifier(realMapId)
-    local measurement = self:GetMeasurement(rootMapId)
+    local mapId = GetMapIdByIndex(rootMapIndex)
+    local measurement = self:GetMeasurement(mapId)
     if(not measurement) then
         -- calculate the measurements of map without worrying about the waypoint
-        local offsetX, offsetY, scaleX, scaleY = self.adapter:GetUniversallyNormalizedMapInfo(realMapId)
+        local offsetX, offsetY, scaleX, scaleY = self.adapter:GetUniversallyNormalizedMapInfo(mapId)
 
         local measurement = Measurement:New()
-        measurement:SetId(rootMapId)
+        measurement:SetId(mapId)
         measurement:SetMapIndex(rootMapIndex)
         measurement:SetZoneId(0)
         measurement:SetScale(scaleX, scaleY)
@@ -200,16 +194,18 @@ function TamrielOMeter:PopCurrentMap()
     return self.mapStack:Pop()
 end
 
-function TamrielOMeter:GetCurrentWorldSize()
+local function getCurrentWorldSize(self)
     local adapter = self.adapter
-    local zoneId = self.unitZoneId or adapter:GetPlayerWorldPosition()
-    local scale = adapter.zoneIdWorldSize[zoneId]
+    -- ToDo: adapter
+    SetMapToPlayerLocation()
+    local mapId = adapter:GetCurrentMapIdentifier()
+    if(mapId == 0) then return DEFAULT_TAMRIEL_SIZE end
+
+    local scale = adapter.mapIdWorldSize[mapId]
     if not scale then
         -- This can happend, e.g. by porting
 
         -- no need to take measurements more than once
-        local mapId = adapter:GetCurrentMapIdentifier()
-        if(mapId == "") then return DEFAULT_TAMRIEL_SIZE end
 
         -- get the player position on the current map
         local localX, localY = adapter:GetPlayerPosition()
@@ -218,13 +214,10 @@ function TamrielOMeter:GetCurrentWorldSize()
             return DEFAULT_TAMRIEL_SIZE
         end
 
-        logger:Debug("CalculateMapMeasurements for GetCurrentWorldSize in ", zoneId)
+        logger:Debug("CalculateMapMeasurements for GetCurrentWorldSize in ", mapId)
 
         self:SetMeasuring(true)
         local waypointManager = self.waypointManager
-        local hasWaypoint = waypointManager:HasPlayerWaypoint()
-        if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
-
         local wpX, wpY = waypointManager:SetMeasurementWaypoint()
 
         local gnpx, gnpy = lib:LocalToGlobal(localX, localY)
@@ -241,8 +234,20 @@ function TamrielOMeter:GetCurrentWorldSize()
         end
         scale = math.floor(DEFAULT_TAMRIEL_SIZE / scale * 8 + 0.125) * 40 -- 8 = 320/40, 320 = Distance of waypoint distance on Tamriel map
 
-        adapter.zoneIdWorldSize[zoneId] = scale
+        adapter.mapIdWorldSize[mapId] = scale
+        return scale, true
+    end
+    return scale
+end
 
+function TamrielOMeter:GetCurrentWorldSize()
+    self:PushCurrentMap()
+    local waypointManager = self.waypointManager
+    local hasWaypoint = waypointManager:HasPlayerWaypoint()
+    if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
+    local scale, wasMeasuring = getCurrentWorldSize(self)
+    self:PopCurrentMap()
+    if wasMeasuring then
         -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
         if(hasWaypoint) then
             waypointManager:RestorePlayerWaypoint()

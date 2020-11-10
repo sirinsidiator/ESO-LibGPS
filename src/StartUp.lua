@@ -26,7 +26,7 @@ function lib.internal:InitializeSaveData()
             version = VERSION,
             apiVersion = GetAPIVersion(),
             measurements = {},
-            zoneIdWorldSize = {}
+            mapIdWorldSize = {}
         }
     end
 
@@ -35,10 +35,10 @@ function lib.internal:InitializeSaveData()
     end
     self.meter.savedMeasurements = saveData.measurements
 
-    for id, data in pairs(self.mapAdapter.zoneIdWorldSize) do
-        saveData.zoneIdWorldSize[id] = data
+    for id, data in pairs(self.mapAdapter.mapIdWorldSize) do
+        saveData.mapIdWorldSize[id] = data
     end
-    self.mapAdapter.zoneIdWorldSize = saveData.zoneIdWorldSize
+    self.mapAdapter.mapIdWorldSize = saveData.mapIdWorldSize
 
     LibGPS_Data = saveData
     self.saveData = saveData
@@ -65,7 +65,7 @@ function lib.internal:Initialize()
     local BLACKREACH_ROOT_MAP_ID = 1782
     local offsetX, offsetY, scaleX, scaleY = mapAdapter:GetUniversallyNormalizedMapInfo(BLACKREACH_ROOT_MAP_ID)
     local measurement = class.Measurement:New()
-    measurement:SetId(mapAdapter:GetMapIdentifier(BLACKREACH_ROOT_MAP_ID))
+    measurement:SetId(BLACKREACH_ROOT_MAP_ID)
     measurement:SetMapIndex(BLACKREACH_ROOT_MAP_INDEX)
     measurement:SetOffset(offsetX, offsetY)
     measurement:SetScale(scaleX, scaleY)
@@ -74,7 +74,7 @@ function lib.internal:Initialize()
     -- no need to actually measure the world map
     local TAMRIEL_MAP_ID = 27
     local measurement = class.Measurement:New()
-    measurement:SetId(mapAdapter:GetMapIdentifier(TAMRIEL_MAP_ID))
+    measurement:SetId(TAMRIEL_MAP_ID)
     measurement:SetMapIndex(TAMRIEL_MAP_INDEX)
     meter:SetMeasurement(measurement, true)
 

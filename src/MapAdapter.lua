@@ -19,7 +19,7 @@ local calibrateX, calibrateY
 function MapAdapter:Initialize()
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
-    self.zoneIdWorldSize = {}
+    self.mapIdWorldSize = {}
     self.original = {}
     self:HookSetMapToFunction("SetMapToQuestCondition")
     self:HookSetMapToFunction("SetMapToQuestStepEnding")
@@ -126,11 +126,12 @@ function MapAdapter:GetCurrentZoneId()
 end
 
 function MapAdapter:GetCurrentMapIdentifier()
-    return GetMapTileTexture()
+    -- One of them should be removed
+    return self:GetCurrentMapId()
 end
 
 function MapAdapter:GetMapIdentifier(mapId)
-    return GetMapTileTextureForMapId(mapId)
+    return mapId
 end
 
 function MapAdapter:GetMapFloorInfo()
