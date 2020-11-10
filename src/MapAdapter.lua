@@ -14,6 +14,8 @@ function MapAdapter:New(...)
     return object
 end
 
+local calibrateX, calibrateY
+
 function MapAdapter:Initialize()
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
@@ -29,6 +31,9 @@ function MapAdapter:Initialize()
     self:HookSetMapToFunction("SetMapToMapId")
     self:HookSetMapToFunction("ProcessMapClick", true, true) -- Returning is done via clicking already
     self:HookSetMapToFunction("SetMapFloor", true)
+
+    local TAMRIEL_MAP_ID = 27
+    calibrateX, calibrateY = GetUniversallyNormalizedMapInfo(TAMRIEL_MAP_ID)
 end
 
 function MapAdapter:SetWaypointManager(waypointManager)
@@ -124,6 +129,10 @@ function MapAdapter:GetCurrentMapIdentifier()
     return GetMapTileTexture()
 end
 
+function MapAdapter:GetMapIdentifier(mapId)
+    return GetMapTileTextureForMapId(mapId)
+end
+
 function MapAdapter:GetMapFloorInfo()
     return GetMapFloorInfo()
 end
@@ -158,4 +167,10 @@ end
 
 function MapAdapter:SetMapToMapIdWithoutMeasuring(mapId)
     return self.original.SetMapToMapId(mapId)
+end
+
+function MapAdapter:GetUniversallyNormalizedMapInfo(mapId)
+    local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(mapId or self:GetCurrentMapId())
+    offsetX, offsetY = offsetX - calibrateX, offsetY - calibrateY
+    return offsetX, offsetY, scaleX, scaleY
 end

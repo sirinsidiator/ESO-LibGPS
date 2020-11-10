@@ -62,27 +62,19 @@ function lib.internal:Initialize()
     internal.mapAdapter = mapAdapter
     internal.meter = meter
 
-    if(mapAdapter:SetMapToMapListIndexWithoutMeasuring(BLACKREACH_ROOT_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
-        error("LibGPS could not switch to the Blackreach map for initialization")
-    end
-
     local BLACKREACH_ROOT_MAP_ID = 1782
-    local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(BLACKREACH_ROOT_MAP_ID)
-    offsetY = offsetY + 0.14
+    local offsetX, offsetY, scaleX, scaleY = mapAdapter:GetUniversallyNormalizedMapInfo(BLACKREACH_ROOT_MAP_ID)
     local measurement = class.Measurement:New()
-    measurement:SetId(mapAdapter:GetCurrentMapIdentifier())
+    measurement:SetId(mapAdapter:GetMapIdentifier(BLACKREACH_ROOT_MAP_ID))
     measurement:SetMapIndex(BLACKREACH_ROOT_MAP_INDEX)
     measurement:SetOffset(offsetX, offsetY)
     measurement:SetScale(scaleX, scaleY)
     meter:SetMeasurement(measurement, true)
 
-    if(mapAdapter:SetMapToMapListIndexWithoutMeasuring(TAMRIEL_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
-        error("LibGPS could not switch to the Tamriel map for initialization")
-    end
-
     -- no need to actually measure the world map
+    local TAMRIEL_MAP_ID = 27
     local measurement = class.Measurement:New()
-    measurement:SetId(mapAdapter:GetCurrentMapIdentifier())
+    measurement:SetId(mapAdapter:GetMapIdentifier(TAMRIEL_MAP_ID))
     measurement:SetMapIndex(TAMRIEL_MAP_INDEX)
     meter:SetMeasurement(measurement, true)
 

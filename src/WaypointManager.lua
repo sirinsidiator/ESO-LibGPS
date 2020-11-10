@@ -131,7 +131,7 @@ function WaypointManager:RestorePlayerWaypoint()
         end
 
         local zoneId, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
-        local scale = self.adapter.zoneIdWorldSize[zoneId] * (measurement.scaleX + measurement.scaleY) * 0.5
+        local scale = self.meter:GetCurrentWorldSize() * (measurement.scaleX + measurement.scaleY) * 0.5
         local worldX, worldY = (self.x-self.playerX) * scale + pwx, (self.y-self.playerY) * scale + pwy
 
         wasSet = SetPlayerWaypointByWorldLocation(worldX, pwh, worldY)
