@@ -108,6 +108,11 @@ function Measurement:Contains(x, y)
         or y >= (self.offsetY + self.scaleY))
 end
 
+--- Returns the map name including localization info.
+function Measurement:GetName()
+    return GetMapNameById(self:GetId())
+end
+
 local temp = {}
 local SEPARATOR = ":"
 local VERSION = "1"

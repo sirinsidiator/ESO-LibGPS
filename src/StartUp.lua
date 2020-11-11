@@ -3,6 +3,7 @@
 ------------------------------------------------------------------
 
 local LIB_IDENTIFIER = "LibGPS3"
+local VERSION = 4
 
 assert(not _G[LIB_IDENTIFIER], LIB_IDENTIFIER .. " is already loaded")
 
@@ -25,15 +26,9 @@ function lib.internal:InitializeSaveData()
         saveData = {
             version = VERSION,
             apiVersion = GetAPIVersion(),
-            measurements = {},
             mapIdWorldSize = {}
         }
     end
-
-    for id, data in pairs(self.meter.savedMeasurements) do
-        saveData.measurements[id] = data
-    end
-    self.meter.savedMeasurements = saveData.measurements
 
     for id, data in pairs(self.mapAdapter.mapIdWorldSize) do
         saveData.mapIdWorldSize[id] = data
@@ -61,23 +56,6 @@ function lib.internal:Initialize()
 
     internal.mapAdapter = mapAdapter
     internal.meter = meter
-
-    local BLACKREACH_ROOT_MAP_ID = 1782
-    local offsetX, offsetY, scaleX, scaleY = mapAdapter:GetUniversallyNormalizedMapInfo(BLACKREACH_ROOT_MAP_ID)
-    local measurement = class.Measurement:New()
-    measurement:SetId(BLACKREACH_ROOT_MAP_ID)
-    measurement:SetMapIndex(BLACKREACH_ROOT_MAP_INDEX)
-    measurement:SetOffset(offsetX, offsetY)
-    measurement:SetScale(scaleX, scaleY)
-    meter:SetMeasurement(measurement, true)
-
-    -- no need to actually measure the world map
-    local TAMRIEL_MAP_ID = 27
-    local measurement = class.Measurement:New()
-    measurement:SetId(TAMRIEL_MAP_ID)
-    measurement:SetMapIndex(TAMRIEL_MAP_INDEX)
-    meter:SetMeasurement(measurement, true)
-
 
     EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER, EVENT_ADD_ON_LOADED, function(event, name)
         if(name ~= "LibGPS") then return end
