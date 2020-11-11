@@ -271,7 +271,7 @@ function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
         local dnx, dny = x2 - x1, y2 - y1
         local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
         local rootMap = self:FindRootMapMeasurementForCoordinates(x1, y1)
-        if rootMap:GetMapIndex() ~= TAMRIEL_MAP_INDEX then
+        if rootMap and rootMap:GetMapIndex() == BLACKREACH_ROOT_MAP_INDEX then
             local rootScale = rootMap:GetScale()
             local mapScale = self:GetMeasurement(mapId):GetScale()
             scale = scale * rootScale / mapScale
@@ -340,7 +340,7 @@ function TamrielOMeter:GetCurrentWorldSize()
         distance = distance * distance * 2
         scale = math.sqrt(distance * (gdx * gdx + gdy * gdy))
         local rootMap = internal.meter:FindRootMapMeasurementForCoordinates(gnpx, gnpy)
-        if rootMap:GetMapIndex() ~= TAMRIEL_MAP_INDEX then
+        if rootMap and rootMap:GetMapIndex() == BLACKREACH_ROOT_MAP_INDEX then
             local rootScale = rootMap:GetScale()
             local mapScale = self:GetMeasurement(mapId):GetScale()
             scale = scale * mapScale / rootScale
