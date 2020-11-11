@@ -117,21 +117,12 @@ function MapAdapter:GetCurrentMapIndex()
     return GetCurrentMapIndex()
 end
 
-function MapAdapter:GetCurrentMapId()
-    return GetCurrentMapId()
-end
-
 function MapAdapter:GetCurrentZoneId()
     return GetZoneId(GetCurrentMapZoneIndex())
 end
 
 function MapAdapter:GetCurrentMapIdentifier()
-    -- One of them should be removed
-    return self:GetCurrentMapId()
-end
-
-function MapAdapter:GetMapIdentifier(mapId)
-    return mapId
+    return GetCurrentMapId()
 end
 
 function MapAdapter:GetMapFloorInfo()
@@ -171,7 +162,7 @@ function MapAdapter:SetMapToMapIdWithoutMeasuring(mapId)
 end
 
 function MapAdapter:GetUniversallyNormalizedMapInfo(mapId)
-    local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(mapId or self:GetCurrentMapId())
+    local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(mapId or self:GetCurrentMapIdentifier())
     offsetX, offsetY = offsetX - calibrateX, offsetY - calibrateY
     return offsetX, offsetY, scaleX, scaleY
 end
