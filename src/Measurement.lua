@@ -76,7 +76,7 @@ end
 
 --- Returns true if the measurement contains valid data.
 function Measurement:IsValid()
-    return self.id and self.mapIndex > 0 and self.zoneId > 0
+    return self.id and (self.mapIndex > 0 or self.zoneId > 0)
 end
 
 --- Converts and returns global coordinates for a given local coordinate pair.

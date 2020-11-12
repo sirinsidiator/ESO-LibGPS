@@ -95,7 +95,6 @@ function TamrielOMeter:ClearCurrentMapMeasurement()
     if(measurement and measurement.mapIndex ~= TAMRIEL_MAP_INDEX) then
         logger:Info("Removing current map measurements")
         self.measurements[measurement:GetId()] = nil
-        self.savedMeasurements[measurement:GetId()] = nil
         self.rootMaps[measurement.mapIndex] = false
     end
 end
@@ -155,10 +154,6 @@ function TamrielOMeter:CalculateMapMeasurement()
     return true, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
 end
 
-function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
-    error("Obsolete")
-end
-
 function TamrielOMeter:FindRootMapMeasurementForCoordinates(x, y)
     logger:Debug("FindRootMapMeasurementForCoordinates(%f, %f)", x, y)
     for rootMapIndex, measurement in pairs(self.rootMaps) do
@@ -184,7 +179,6 @@ end
 
 local function getCurrentWorldSize(self)
     local adapter = self.adapter
-    -- ToDo: adapter
     SetMapToPlayerLocation()
     local mapId = adapter:GetCurrentMapIdentifier()
     if(mapId == 0) then return DEFAULT_TAMRIEL_SIZE end
@@ -228,12 +222,26 @@ local function getCurrentWorldSize(self)
 end
 
 function TamrielOMeter:GetCurrentWorldSize()
+    local adapter = self.adapter
+
+    if adapter:IsCurrentMapPlayerLocation() then
+        local mapId = adapter:GetCurrentMapIdentifier()
+        local scale = adapter.mapIdWorldSize[mapId]
+        if scale then
+            return scale
+        end
+    end
+
     self:PushCurrentMap()
     local waypointManager = self.waypointManager
-    local notMeasuring = not lib:IsMeasuring() -- Multiple calls
+    local notMeasuring = not lib:IsMeasuring()
+    if not notMeasuring then
+        logger:Debug("Still measuring. No waypoint restore.")
+    end
     local hasWaypoint = notMeasuring and waypointManager:HasPlayerWaypoint()
     if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
     local scale, wasMeasuring = getCurrentWorldSize(self)
+
     self:PopCurrentMap()
     if notMeasuring and wasMeasuring then
         -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).

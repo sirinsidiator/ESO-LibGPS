@@ -45,8 +45,6 @@ function lib.internal:Initialize()
 
     logger:Debug("Initializing LibGPS3...")
     local internal = lib.internal
-    local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
-    local BLACKREACH_ROOT_MAP_INDEX = internal.BLACKREACH_ROOT_MAP_INDEX
 
     local mapAdapter = class.MapAdapter:New()
     local meter = class.TamrielOMeter:New(mapAdapter)
