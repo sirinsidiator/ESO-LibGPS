@@ -82,6 +82,24 @@ function lib:GlobalToLocal(x, y)
     end
 end
 
+--- Converts the given map coordinates on the current map into world coordinates.
+--- Returns x and y in world coordinates or nil if the measurements of the active map are not available.
+function lib:LocalToWorld(x, y)
+    local measurement = internal.meter:GetCurrentMapMeasurement()
+    if(measurement) then
+        return measurement:ToWorld(x, y)
+    end
+end
+
+--- Converts the given global coordinates on the current map into world coordinates.
+--- Returns x and y in world coordinates or nil if the measurements of the active map are not available.
+function lib:GlobalToWorld(x, y)
+    local measurement = internal.meter:GetCurrentMapMeasurement()
+    if(measurement) then
+        return measurement:ToWorld(measurement:ToLocal(x, y))
+    end
+end
+
 --- This function sets the current map as player chosen so it won't switch back to the previous map.
 function lib:SetPlayerChoseCurrentMap()
     return internal.mapAdapter:SetPlayerChoseCurrentMap()

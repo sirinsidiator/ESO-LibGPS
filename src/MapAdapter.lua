@@ -110,7 +110,16 @@ function MapAdapter:GetPlayerPosition()
 end
 
 function MapAdapter:GetPlayerWorldPosition()
-    return GetUnitRawWorldPosition("player")
+    local zoneId, pwx, pwh, pwy = GetUnitRawWorldPosition("player")
+    if zoneId == 1161 then
+        return GetUnitWorldPosition("player")
+    end
+    return zoneId, pwx, pwh, pwy
+end
+
+function MapAdapter:GetPlayerZoneId()
+    local zoneId = GetUnitWorldPosition("player")
+    return zoneId
 end
 
 function MapAdapter:GetCurrentMapIndex()
