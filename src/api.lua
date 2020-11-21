@@ -145,7 +145,8 @@ end
 
 --- Returns the current size of Tamriel in world-units.
 function lib:GetCurrentWorldSize()
-    return internal.meter:GetCurrentWorldSize()
+    local size = internal.meter:GetCurrentWorldSize()
+    return size.width, size.height
 end
 
 --- Returns the distance in meters of given local coords.

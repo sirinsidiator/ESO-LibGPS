@@ -19,7 +19,7 @@ local calibrateX, calibrateY
 function MapAdapter:Initialize()
     self.anchor = ZO_Anchor:New()
     self.panAndZoom = ZO_WorldMap_GetPanAndZoom()
-    self.mapIdWorldSize = {}
+    self.sizeIdWorldSize = {}
     self.original = {}
     self:HookSetMapToFunction("SetMapToQuestCondition")
     self:HookSetMapToFunction("SetMapToQuestStepEnding")
@@ -109,9 +109,16 @@ function MapAdapter:GetPlayerPosition()
     return GetMapPlayerPosition("player")
 end
 
+local zoneException = {
+    [1161] = true,
+    [1207] = true
+}
+
 function MapAdapter:GetPlayerWorldPosition()
     local zoneId, pwx, pwh, pwy = GetUnitRawWorldPosition("player")
-    if zoneId == 1161 then
+    -- Don't know why, but the result will be wrong, if GetUnitRawWorldPosition is used in these zones
+    -- In all other zones, checked yet, GetUnitRawWorldPosition is right and GetUnitWorldPosition wrong.
+    if zoneException[zoneId] then
         return GetUnitWorldPosition("player")
     end
     return zoneId, pwx, pwh, pwy
@@ -174,4 +181,23 @@ function MapAdapter:GetUniversallyNormalizedMapInfo(mapId)
     local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(mapId or self:GetCurrentMapIdentifier())
     offsetX, offsetY = offsetX - calibrateX, offsetY - calibrateY
     return offsetX, offsetY, scaleX, scaleY
+end
+
+function MapAdapter:GetWorldSize(sizeId)
+    local size = self.sizeIdWorldSize[sizeId]
+    if not size then
+        size = lib.internal.class.WorldSize:New()
+        local data = lib.internal.saveData and lib.internal.saveData.sizeIdWorldSize[sizeId]
+        if data then
+            size:Deserialize(data)
+        end
+    end
+    return size
+end
+
+function MapAdapter:SetWorldSize(sizeId, size)
+    self.sizeIdWorldSize[sizeId] = size
+    if lib.internal.saveData then
+        lib.internal.saveData.sizeIdWorldSize[sizeId] = size:Serialize()
+    end
 end

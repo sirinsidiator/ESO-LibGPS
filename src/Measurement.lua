@@ -91,7 +91,7 @@ function Measurement:ToWorld(x, y)
     local adapter = lib.internal.mapAdapter
     local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
     local playerX, playerY = adapter:GetPlayerPosition()
-    local scaleX, scaleY = lib.internal.meter:GetCurrentWorldSize()
+    local scaleX, scaleY = lib.internal.meter:GetCurrentWorldSize():GetSize()
     local scaleX, scaleY = scaleX * self.scaleX, scaleY * self.scaleY
     local worldX, worldY = (x - playerX) * scaleX + pwx, (y - playerY) * scaleY + pwy
     return worldX, pwh, worldY

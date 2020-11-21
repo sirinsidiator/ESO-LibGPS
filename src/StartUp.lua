@@ -26,14 +26,13 @@ function lib.internal:InitializeSaveData()
         saveData = {
             version = VERSION,
             apiVersion = GetAPIVersion(),
-            mapIdWorldSize = {}
+            sizeIdWorldSize = {}
         }
     end
 
-    for id, data in pairs(self.mapAdapter.mapIdWorldSize) do
-        saveData.mapIdWorldSize[id] = data
+    for id, data in pairs(self.mapAdapter.sizeIdWorldSize) do
+        saveData.sizeIdWorldSize[id] = data:Serialize()
     end
-    self.mapAdapter.mapIdWorldSize = saveData.mapIdWorldSize
 
     LibGPS_Data = saveData
     self.saveData = saveData
