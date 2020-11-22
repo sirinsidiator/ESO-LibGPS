@@ -195,9 +195,9 @@ function MapAdapter:GetWorldSize(sizeId)
     return size
 end
 
-function MapAdapter:SetWorldSize(sizeId, size)
+function MapAdapter:SetWorldSize(sizeId, size, notSaving)
     self.sizeIdWorldSize[sizeId] = size
-    if lib.internal.saveData then
+    if not notSaving and lib.internal.saveData then
         lib.internal.saveData.sizeIdWorldSize[sizeId] = size:Serialize()
     end
 end

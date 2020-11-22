@@ -177,7 +177,7 @@ function TamrielOMeter:PopCurrentMap()
     return self.mapStack:Pop()
 end
 
-local function getScaleMapId(self, mapId)
+local function getMapSizeId(self, mapId)
     local zoneId = self.adapter:GetPlayerZoneId()
     return mapId + zoneId * 100000, zoneId
 end
@@ -185,10 +185,12 @@ local function getCurrentWorldSize(self, notMeasuring)
     local adapter = self.adapter
     SetMapToPlayerLocation()
     local mapId = adapter:GetCurrentMapIdentifier()
-    if(mapId == 0) then return DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE end
+    if(mapId == 0) then
+        return adapter:GetWorldSize(0)
+    end
 
-    local scaleMapId, zoneId = getScaleMapId(self, mapId)
-    local size = adapter:GetWorldSize(scaleMapId)
+    local mapSizeId, zoneId = getMapSizeId(self, mapId)
+    local size = adapter:GetWorldSize(mapSizeId)
     if not size:IsValid() then
         -- This can happend, e.g. by porting
         -- no need to take measurements more than once
@@ -197,14 +199,14 @@ local function getCurrentWorldSize(self, notMeasuring)
         local localX, localY = adapter:GetPlayerPosition()
         if (localX == 0 and localY == 0) then
             -- cannot take measurements while player position is not initialized
-            return DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
+            return adapter:GetWorldSize(0)
         end
 
         logger:Debug("Calculate current world size of ", mapId, " for zone ", zoneId)
 
         self:SetMeasuring(true)
         local waypointManager = self.waypointManager
-        local scaleX, scaleY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
+        local worldSizeX, worldSizeY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
 
         if notMeasuring then
             waypointManager.suppressCount = waypointManager.suppressCount + 1
@@ -221,16 +223,16 @@ local function getCurrentWorldSize(self, notMeasuring)
 
         size:SetMapId(mapId)
         size:SetZoneId(zoneId)
-        adapter:SetWorldSize(scaleMapId, size) -- Assume default scale
+        adapter:SetWorldSize(mapSizeId, size, true) -- Assume default scale, do not serialize
         waypointManager:SetPlayerWaypoint(wx1, wy1)
         -- The assumed scale may wrong. Lets see how wrong:
         local wpX1, wpY1 = waypointManager:GetPlayerWaypoint()
         -- correct scale, so that we get the values we want:
         local correctX, correctY = (wx1 - localX) / (wpX1 - localX), (wy1 - localY) / (wpY1 - localY)
-        scaleX, scaleY = math.floor(correctX * scaleX * 0.01 + 0.4) * 100, math.floor(correctY * scaleY * 0.01 + 0.4) * 100
+        worldSizeX, worldSizeY = math.floor(correctX * worldSizeX * 0.01 + 0.4) * 100, math.floor(correctY * worldSizeY * 0.01 + 0.4) * 100
 
-        size:SetSize(scaleX, scaleY)
-        adapter:SetWorldSize(scaleMapId, size)
+        size:SetSize(worldSizeX, worldSizeY)
+        adapter:SetWorldSize(mapSizeId, size)
         return size, true
     end
     return size, false
@@ -238,12 +240,12 @@ end
 
 function TamrielOMeter:GetCurrentWorldSize()
     local adapter = self.adapter
-    local size
+    local size, wasMeasuring
 
     if adapter:IsCurrentMapPlayerLocation() then
         local mapId = adapter:GetCurrentMapIdentifier()
-        local scaleMapId = getScaleMapId(self, mapId)
-        size = adapter:GetWorldSize(scaleMapId)
+        local mapSizeId = getMapSizeId(self, mapId)
+        size = adapter:GetWorldSize(mapSizeId)
         if size:IsValid() then
             return size
         end
@@ -267,8 +269,8 @@ function TamrielOMeter:GetCurrentWorldSize()
             waypointManager:RestorePlayerWaypoint()
         else
             waypointManager:RemovePlayerWaypoint()
+            waypointManager:ClearPlayerWaypoint()
         end
-        waypointManager:ClearPlayerWaypoint()
     end
     return size
 end
@@ -292,24 +294,30 @@ local scaleIdToGlobalRatio = {}
 function TamrielOMeter:GetWorldGlobalRatio()
     local adapter = self.adapter
     local mapId = adapter:GetCurrentMapIdentifier()
-    local scaleMapId, zoneId = getScaleMapId(self, mapId)
-    local scaleX = scaleIdToGlobalRatio[scaleMapId]
-    if not scaleX then
+    local mapSizeId, zoneId = getMapSizeId(self, mapId)
+    local worldSizeX, worldSizeY
+    
+    worldSizeX = scaleIdToGlobalRatio[mapSizeId]
+    if not worldSizeX then
         local size = self:GetCurrentWorldSize()
-        scaleX, scaleY = size:GetSize()
-        scaleX, scaleY = scaleX / DEFAULT_TAMRIEL_SIZE, scaleY / DEFAULT_TAMRIEL_SIZE
+        worldSizeX, worldSizeY = size:GetSize()
+        worldSizeX, worldSizeY = worldSizeX / DEFAULT_TAMRIEL_SIZE, worldSizeY / DEFAULT_TAMRIEL_SIZE
         local waypointManager = self.waypointManager
         if zoneId == 1161 then
-            scaleX, scaleY = scaleX * 7, scaleY * 7
+            -- In Blackreach Greymoor the world size is right for SetPlayerWaypointByWorldLocation,
+            -- but wrong for the distance. 7 is just a guess made by movement speed
+            worldSizeX, worldSizeY = worldSizeX * 7, worldSizeY * 7
+        elseif mapId == 1888 then
+            worldSizeX, worldSizeY = worldSizeX * 4, worldSizeY * 4
         end
-        scaleIdToGlobalRatio[scaleMapId] = { scaleX, scaleY }
+        scaleIdToGlobalRatio[mapSizeId] = { worldSizeX, worldSizeY }
     else
-        scaleX, scaleY = unpack(scaleX)
+        worldSizeX, worldSizeY = unpack(worldSizeX)
     end
-    return scaleX, scaleY
+    return worldSizeX, worldSizeY
 end
 
 function TamrielOMeter:GetGlobalWorldRatio()
-    local scaleX, scaleY = self:GetWorldGlobalRatio()
-    return 1 / scaleX, 1 / scaleY
+    local worldSizeX, worldSizeY = self:GetWorldGlobalRatio()
+    return 1 / worldSizeX, 1 / worldSizeY
 end
