@@ -285,7 +285,7 @@ function TamrielOMeter:GetWorldGlobalRatio()
     local mapId = adapter:GetCurrentMapIdentifier()
     local mapSizeId, zoneId = getMapSizeId(self, mapId)
     local worldSizeX, worldSizeY
-    
+
     worldSizeX = scaleIdToGlobalRatio[mapSizeId]
     if not worldSizeX then
         local size = self:GetCurrentWorldSize()
