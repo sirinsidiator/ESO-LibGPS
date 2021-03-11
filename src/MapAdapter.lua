@@ -110,6 +110,8 @@ function MapAdapter:GetPlayerPosition()
 end
 
 local zoneException = {
+    [1027] = true,
+    [1160] = true,
     [1161] = true,
     [1207] = true
 }
@@ -122,6 +124,10 @@ function MapAdapter:GetPlayerWorldPosition()
         return GetUnitWorldPosition("player")
     end
     return zoneId, pwx, pwh, pwy
+end
+
+function MapAdapter:GetNormalizedPositionFromWorld(zoneId, worldX, worldY, worldZ)
+    return GetNormalizedWorldPosition(zoneId, worldX, worldY, worldZ)
 end
 
 function MapAdapter:GetPlayerZoneId()
