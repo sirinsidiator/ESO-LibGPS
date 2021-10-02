@@ -4,6 +4,7 @@
 
 local lib = LibGPS3
 local logger = lib.internal.logger
+local adapter = lib.internal.adapter
 
 --- This object contains all the data about a map measurement and offers some convenience functions to interact with them.
 --- Undocumented methods are for internal use only.
@@ -76,7 +77,7 @@ end
 
 --- Returns true if the measurement contains valid data.
 function Measurement:IsValid()
-    return self.id and self.mapIndex > 0 and self.zoneId > 0
+    return self.id and (self.mapIndex or self.zoneId) > 0
 end
 
 --- Converts and returns global coordinates for a given local coordinate pair.
@@ -84,6 +85,16 @@ function Measurement:ToGlobal(x, y)
     x = x * self.scaleX + self.offsetX
     y = y * self.scaleY + self.offsetY
     return x, y
+end
+
+function Measurement:ToWorld(x, y)
+    local adapter = lib.internal.mapAdapter
+    local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
+    local playerX, playerY = adapter:GetPlayerPosition()
+    local scaleX, scaleY = lib.internal.meter:GetCurrentWorldSize():GetSize()
+    local scaleX, scaleY = scaleX * self.scaleX, scaleY * self.scaleY
+    local worldX, worldY = (x - playerX) * scaleX + pwx, (y - playerY) * scaleY + pwy
+    return worldX, pwh, worldY
 end
 
 -- Converts and returns local coordinates for a given global coordinate pair.
@@ -106,6 +117,16 @@ function Measurement:Contains(x, y)
         or x >= (self.offsetX + self.scaleX)
         or y <= self.offsetY
         or y >= (self.offsetY + self.scaleY))
+end
+
+--- Returns the map name including localization info.
+function Measurement:GetName()
+    return GetMapNameById(self:GetId())
+end
+
+-- Returns the parent zone id
+function Measurement:GetParentZoneId()
+    return GetParentZoneId(self:GetZoneId())
 end
 
 local temp = {}

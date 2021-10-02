@@ -23,7 +23,7 @@ end
 
 function MapStack:Push()
     local adapter = self.adapter
-    local mapId = adapter:GetCurrentMapId()
+    local mapId = adapter:GetCurrentMapIdentifier()
     local zoom = adapter:GetCurrentZoom()
     local offsetX, offsetY = adapter:GetCurrentOffset()
     logger:Verbose("Push map on stack")

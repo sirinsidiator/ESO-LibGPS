@@ -15,7 +15,6 @@ local BLACKREACH_ROOT_MAP_INDEX = internal.BLACKREACH_ROOT_MAP_INDEX
 local SCALE_INACCURACY_WARNING_THRESHOLD = 1e-3
 local DEFAULT_TAMRIEL_SIZE = 2500000
 local MAP_CENTER = 0.5
-local VERSION = 3
 
 local TamrielOMeter = ZO_Object:Subclass()
 internal.class.TamrielOMeter = TamrielOMeter
@@ -33,11 +32,6 @@ function TamrielOMeter:Initialize(adapter)
     self.savedMeasurements = {}
     self.rootMaps = {}
     self.measuring = false
-    self.unitZoneId = 0
-
-    EVENT_MANAGER:RegisterForEvent("LibGPS3", EVENT_PLAYER_ACTIVATED, function()
-        self.unitZoneId = adapter:GetPlayerWorldPosition()
-    end)
 
     self:RegisterRootMap(BLACKREACH_ROOT_MAP_INDEX) -- BlackReach
     self:RegisterRootMap(TAMRIEL_MAP_INDEX) -- Tamriel
@@ -50,13 +44,6 @@ end
 function TamrielOMeter:Reset()
     logger:Info("Removing all measurements")
     ZO_ClearTable(self.measurements)
-    ZO_ClearTable(self.savedMeasurements)
-
-    local tamrielMeasurement = self.rootMaps[TAMRIEL_MAP_INDEX]
-    for rootMapIndex, measurement in pairs(self.rootMaps) do
-        self.rootMaps[rootMapIndex] = false
-    end
-    self:SetMeasurement(tamrielMeasurement, true)
 end
 
 function TamrielOMeter:SetWaypointManager(waypointManager)
@@ -73,17 +60,11 @@ function TamrielOMeter:GetRootMapMeasurement(mapIndex)
 end
 
 function TamrielOMeter:GetMeasurement(id)
-    if(not self.measurements[id] and self.savedMeasurements[id]) then
-        local measurement = Measurement:New()
-        measurement:Deserialize(id, self.savedMeasurements[id])
-        self.measurements[id] = measurement
-    end
     return self.measurements[id]
 end
 
 function TamrielOMeter:SetMeasurement(measurement, isRootMap)
     self.measurements[measurement:GetId()] = measurement
-    self.savedMeasurements[measurement:GetId()] = measurement:Serialize()
     if(isRootMap) then
         self.rootMaps[measurement:GetMapIndex()] = measurement
     end
@@ -114,7 +95,6 @@ function TamrielOMeter:ClearCurrentMapMeasurement()
     if(measurement and measurement.mapIndex ~= TAMRIEL_MAP_INDEX) then
         logger:Info("Removing current map measurements")
         self.measurements[measurement:GetId()] = nil
-        self.savedMeasurements[measurement:GetId()] = nil
         self.rootMaps[measurement.mapIndex] = false
     end
 end
@@ -132,155 +112,46 @@ function TamrielOMeter:GetCurrentMapMeasurement()
 end
 
 function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
-    -- switch to the map
-    if(self.adapter:SetMapToMapListIndexWithoutMeasuring(rootMapIndex) == SET_MAP_RESULT_FAILED) then
-        logger:Warn("Could not switch to root map with index %d", rootMapIndex)
-        return
-    end
-
-    local rootMapId = self.adapter:GetCurrentMapIdentifier()
-    local measurement = self:GetMeasurement(rootMapId)
+    local mapId = GetMapIdByIndex(rootMapIndex)
+    local measurement = self:GetMeasurement(mapId)
     if(not measurement) then
         -- calculate the measurements of map without worrying about the waypoint
-        local mapIndex = self:CalculateMeasurementsInternal(rootMapId, self.adapter:GetPlayerPosition())
-        measurement = self.measurements[rootMapId]
+        local offsetX, offsetY, scaleX, scaleY = self.adapter:GetUniversallyNormalizedMapInfo(mapId)
+        local zoneIndex = select(4, GetMapInfoById(mapId))
+        local zoneId = GetZoneId(zoneIndex)
 
-        if(mapIndex ~= rootMapIndex) then
-            local name = self.adapter:GetFormattedMapName(rootMapIndex)
-            logger:Warn("CalculateMeasurementsInternal returned different index while measuring %s map. expected: %d, actual: %d", name, rootMapIndex, mapIndex)
-
-            if(not measurement) then
-                logger:Warn("Failed to measure %s map.", name)
-                return
-            end
-        end
+        local measurement = Measurement:New()
+        measurement:SetId(mapId)
+        measurement:SetMapIndex(rootMapIndex)
+        measurement:SetZoneId(zoneId)
+        measurement:SetScale(scaleX, scaleY)
+        measurement:SetOffset(offsetX, offsetY)
+        self:SetMeasurement(measurement, true)
     end
 
     return measurement
 end
 
-function TamrielOMeter:CalculateMapMeasurement(returnToInitialMap)
+function TamrielOMeter:CalculateMapMeasurement()
     local adapter = self.adapter
 
     -- no need to take measurements more than once
     local mapId = adapter:GetCurrentMapIdentifier()
-    if(mapId == "" or self:GetMeasurement(mapId)) then return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED end
+    if(mapId == 0 or self:GetMeasurement(mapId)) then return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED end
 
-    -- get the player position on the current map
-    local localX, localY = adapter:GetPlayerPosition()
-    if (localX == 0 and localY == 0) then
-        -- cannot take measurements while player position is not initialized
-        return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
-    end
-
-    logger:Debug("CalculateMapMeasurement for", mapId)
-
-    returnToInitialMap = (returnToInitialMap ~= false)
-
-    self:SetMeasuring(true)
-
-    -- check some facts about the current map, so we can reset it later
-    if(returnToInitialMap) then
-        self:PushCurrentMap()
-    end
-
-    local waypointManager = self.waypointManager
-    local hasWaypoint = waypointManager:HasPlayerWaypoint()
-    if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
-
-    local mapIndex = self:CalculateMeasurementsInternal(mapId, localX, localY)
-
-    -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
-    if(hasWaypoint) then
-        waypointManager:RestorePlayerWaypoint()
-    else
-        waypointManager:RemovePlayerWaypoint()
-    end
-
-    if(returnToInitialMap) then
-        local result = self:PopCurrentMap()
-        return true, result
-    end
-
-    return true, (mapId == adapter:GetCurrentMapIdentifier()) and SET_MAP_RESULT_CURRENT_MAP_UNCHANGED or SET_MAP_RESULT_MAP_CHANGED
-end
-
-function TamrielOMeter:CalculateMeasurementsInternal(mapId, localX, localY)
-    local adapter = self.adapter
-
-    local wpX, wpY = self.waypointManager:SetMeasurementWaypoint()
-
-    -- add local points to seen maps
-    local measurementPositions = {}
-    measurementPositions[#measurementPositions + 1] = { mapId = mapId, pX = localX, pY = localY, wpX = wpX, wpY = wpY, rootMap = false }
-
-    -- switch to zone map in order to get the mapIndex for the current location
-    local x1, y1, x2, y2
-    while not adapter:IsCurrentMapZoneMap() do
-        if(adapter:MapZoomOut() ~= SET_MAP_RESULT_MAP_CHANGED) then break end
-        -- collect measurements for all maps we come through on our way to the zone map
-        x1, y1, x2, y2 = self:GetReferencePoints()
-        measurementPositions[#measurementPositions + 1] = { mapId = adapter:GetCurrentMapIdentifier(), pX = x1, pY = y1, wpX = x2, wpY = y2, rootMap = false }
-    end
-
-    -- some non-zone maps like Eyevea zoom directly to the Tamriel map
-    local mapIndex = adapter:GetCurrentMapIndex()
-    measurementPositions[#measurementPositions].rootMap = (self.rootMaps[mapIndex] ~= nil)
-    if(mapIndex == nil) then mapIndex = TAMRIEL_MAP_INDEX end
+    local offsetX, offsetY, scaleX, scaleY = adapter:GetUniversallyNormalizedMapInfo(mapId)
     local zoneId = adapter:GetCurrentZoneId()
+    local mapIndex = adapter:GetCurrentMapIndex()
 
-    -- switch to world map so we can calculate the global map scale and offset
-    if(adapter:SetMapToMapListIndexWithoutMeasuring(TAMRIEL_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
-        -- failed to switch to the world map
-        logger:Warn("Could not switch to world map")
-        return
-    end
+    local measurement = Measurement:New()
+    measurement:SetId(mapId)
+    measurement:SetMapIndex(mapIndex)
+    measurement:SetZoneId(zoneId)
+    measurement:SetScale(scaleX, scaleY)
+    measurement:SetOffset(offsetX, offsetY)
+    self:SetMeasurement(measurement, self.rootMaps[mapIndex] ~= nil)
 
-    -- get the two reference points on the world map
-    x1, y1, x2, y2 = self:GetReferencePoints()
-
-    -- calculate scale and offset for all maps that we saw
-    local scaleX, scaleY, offsetX, offsetY
-    for i = 1, #measurementPositions do
-        local pos = measurementPositions[i]
-        if(self:GetMeasurement(pos.mapId)) then break end -- we always go up in the hierarchy so we can stop once a measurement already exists
-        logger:Debug("Store map measurement for " .. pos.mapId:sub(10, -7))
-        scaleX = (x2 - x1) / (pos.wpX - pos.pX)
-        scaleY = (y2 - y1) / (pos.wpY - pos.pY)
-        offsetX = x1 - pos.pX * scaleX
-        offsetY = y1 - pos.pY * scaleY
-        if(mabs(scaleX - scaleY) > SCALE_INACCURACY_WARNING_THRESHOLD) then
-            logger:Warn("Current map measurement might be wrong", pos.mapId:sub(10, -7), mapIndex, pos.pX, pos.pY, pos.wpX, pos.wpY, x1, y1, x2, y2, offsetX, offsetY, scaleX, scaleY)
-        end
-
-        -- store measurements
-        local measurement = self:GetMeasurement(pos.mapId) or Measurement:New()
-        measurement:SetId(pos.mapId)
-        measurement:SetMapIndex(mapIndex)
-        measurement:SetZoneId(zoneId)
-        measurement:SetScale(scaleX, scaleY)
-        measurement:SetOffset(offsetX, offsetY)
-        self:SetMeasurement(measurement, pos.rootMap)
-    end
-
-    -- global size in WorldUnits for zoneId
-    local wZoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
-    if not adapter.zoneIdWorldSize[wZoneId] then
-        local distance = self.waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
-        distance = distance * distance * 2
-        local dnx, dny = x2 - x1, y2 - y1
-        local scale = math.sqrt(distance/(dnx*dnx+dny*dny))
-        local rootMap = self:FindRootMapMeasurementForCoordinates(x1, y1)
-        if rootMap and rootMap:GetMapIndex() == BLACKREACH_ROOT_MAP_INDEX then
-            local rootScale = rootMap:GetScale()
-            local mapScale = self:GetMeasurement(mapId):GetScale()
-            scale = scale * rootScale / mapScale
-        end
-        -- smooth value to get a nice "2500000" for zone maps
-        adapter.zoneIdWorldSize[wZoneId] = math.floor(scale * 0.25 + 0.125) * 4
-    end
-
-    return mapIndex
+    return true, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED
 end
 
 function TamrielOMeter:FindRootMapMeasurementForCoordinates(x, y)
@@ -306,76 +177,131 @@ function TamrielOMeter:PopCurrentMap()
     return self.mapStack:Pop()
 end
 
-function TamrielOMeter:GetCurrentWorldSize()
+local function getMapSizeId(self, mapId)
+    local zoneId = self.adapter:GetPlayerZoneId()
+    return mapId + zoneId * 100000, zoneId
+end
+local function getCurrentWorldSize(self, notMeasuring)
     local adapter = self.adapter
-    local zoneId = self.unitZoneId or adapter:GetPlayerWorldPosition()
-    local scale = adapter.zoneIdWorldSize[zoneId]
-    if not scale then
-        -- This can happend, e.g. by porting
+    SetMapToPlayerLocation()
+    local mapId = adapter:GetCurrentMapIdentifier()
+    if(mapId == 0) then
+        return adapter:GetWorldSize(0)
+    end
 
+    local mapSizeId, zoneId = getMapSizeId(self, mapId)
+    local size = adapter:GetWorldSize(mapSizeId)
+    if not size:IsValid() then
+        -- This can happend, e.g. by porting
         -- no need to take measurements more than once
-        local mapId = adapter:GetCurrentMapIdentifier()
-        if(mapId == "") then return DEFAULT_TAMRIEL_SIZE end
 
         -- get the player position on the current map
         local localX, localY = adapter:GetPlayerPosition()
         if (localX == 0 and localY == 0) then
             -- cannot take measurements while player position is not initialized
-            return DEFAULT_TAMRIEL_SIZE
+            return adapter:GetWorldSize(0)
         end
 
-        logger:Debug("CalculateMapMeasurements for GetCurrentWorldSize in ", zoneId)
+        logger:Debug("Calculate current world size of ", mapId, " for zone ", zoneId)
 
-        self:SetMeasuring(true)
-        local waypointManager = self.waypointManager
-        local hasWaypoint = waypointManager:HasPlayerWaypoint()
-        if(hasWaypoint) then waypointManager:StorePlayerWaypoint() end
+        local worldSizeX, worldSizeY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
 
-        local wpX, wpY = waypointManager:SetMeasurementWaypoint()
-
-        local gnpx, gnpy = lib:LocalToGlobal(localX, localY)
-        local gnwx, gnwy = lib:LocalToGlobal(wpX, wpY)
-        local gdx, gdy = gnpx - gnwx, gnpy - gnwy
-        local distance = waypointManager.waypointDistance -- The waypoint has a fixed world coord distance. See SetMeasurementWaypoint.
-        distance = distance * distance * 2
-        scale = math.sqrt(distance * (gdx * gdx + gdy * gdy))
-        local rootMap = internal.meter:FindRootMapMeasurementForCoordinates(gnpx, gnpy)
-        if rootMap and rootMap:GetMapIndex() == BLACKREACH_ROOT_MAP_INDEX then
-            local rootScale = rootMap:GetScale()
-            local mapScale = self:GetMeasurement(mapId):GetScale()
-            scale = scale * mapScale / rootScale
-        end
-        scale = math.floor(DEFAULT_TAMRIEL_SIZE * 80 / scale + 0.125) * 4 -- 80 = 320/4, 320 = Distance of waypoint distance on Tamriel map
-
-        adapter.zoneIdWorldSize[zoneId] = scale
-
-        -- Until now, the waypoint was abused. Now the waypoint must be restored or removed again (not from Lua only).
-        if(hasWaypoint) then
-            waypointManager:RestorePlayerWaypoint()
+        local wx1, wy1
+        -- Make sure the waypoint is at a different location
+        if mapId == 1747 then -- but not too far for blackreach
+            wx1, wy1 = localX < 0.5 and (localX + 0.02) or (localX - 0.02), localY < 0.5 and (localY + 0.02) or (localY - 0.02)
         else
-            waypointManager:RemovePlayerWaypoint()
+            wx1, wy1 = localX < 0.5 and 0.75 or 0.25, localY < 0.5 and 0.75 or 0.25
+        end
+
+        logger:Debug("ref-point (normalized): ", wx1, "x", wy1)
+
+        size:SetMapId(mapId)
+        size:SetZoneId(zoneId)
+        adapter:SetWorldSize(mapSizeId, size, true) -- Assume default scale, do not serialize
+
+        local measurement = self:GetCurrentMapMeasurement()
+        local wwX, wwZ, wwY = measurement:ToWorld(wx1, wy1)
+        logger:Debug("ref-point (calulated world): ", wwX, "x", wwY)
+        -- The assumed scale may wrong. Lets see how wrong:
+        local wpX1, wpY1 = adapter:GetNormalizedPositionFromWorld(zoneId, wwX, wwZ, wwY)
+        logger:Debug("ref-point (normalized real): ", wpX1, "x", wpY1)
+        -- correct scale, so that we get the values we want:
+        local correctX, correctY = (wx1 - localX) / (wpX1 - localX), (wy1 - localY) / (wpY1 - localY)
+        worldSizeX, worldSizeY = math.floor(correctX * worldSizeX * 0.01 + 0.25) * 100, math.floor(correctY * worldSizeY * 0.01 + 0.25) * 100
+        logger:Debug("worldSize corrected: ", worldSizeX, "x", worldSizeY)
+
+        size:SetSize(worldSizeX, worldSizeY)
+        adapter:SetWorldSize(mapSizeId, size)
+    end
+    return size
+end
+
+function TamrielOMeter:GetCurrentWorldSize()
+    local adapter = self.adapter
+    local size
+
+    if adapter:IsCurrentMapPlayerLocation() then
+        local mapId = adapter:GetCurrentMapIdentifier()
+        local mapSizeId = getMapSizeId(self, mapId)
+        size = adapter:GetWorldSize(mapSizeId)
+        if size:IsValid() then
+            return size
         end
     end
-    return scale
+
+    self:PushCurrentMap()
+    size = getCurrentWorldSize(self)
+    self:PopCurrentMap()
+    return size
 end
 
 function TamrielOMeter:GetLocalDistanceInMeters(lx1, ly1, lx2, ly2)
+    if not (lx1 or ly1 or lx2 or ly2) then return 0 end
     lx1, ly1 = lx1 - lx2, ly1 - ly2
-    local worldSize = self:GetCurrentWorldSize()
+    local worldSizeX, worldSizeY = self:GetWorldGlobalRatio()
     local measurement = self:GetCurrentMapMeasurement()
-    return math.sqrt(lx1*lx1 + ly1*ly1) * (measurement.scaleX + measurement.scaleY) * 0.005 * worldSize
+    return math.sqrt(lx1*lx1 * measurement.scaleX * worldSizeX + ly1*ly1 * measurement.scaleY * worldSizeY) * 0.01 * DEFAULT_TAMRIEL_SIZE
 end
 
 function TamrielOMeter:GetGlobalDistanceInMeters(gx1, gy1, gx2, gy2)
+    if not (gx1 or gy1 or gx2 or gy2) then return 0 end
     gx1, gy1 = gx1 - gx2, gy1 - gy2
-    local worldSize = self:GetCurrentWorldSize()
+    local worldSize = self:GetWorldGlobalRatio() * DEFAULT_TAMRIEL_SIZE
     return math.sqrt(gx1*gx1 + gy1*gy1) * 0.01 * worldSize
 end
 
+local scaleIdToGlobalRatio = {}
+-- In Blackreach Greymoor the world size is right for SetPlayerWaypointByWorldLocation,
+-- but wrong for the distance. 7 is just a guess made by movement speed
+local realDistanceFactor = {
+    [1161] = 7,
+    [1238] = 1.5,
+    [1888] = 4,
+    [1890] = 8
+}
 function TamrielOMeter:GetWorldGlobalRatio()
-    return self:GetCurrentWorldSize() / DEFAULT_TAMRIEL_SIZE
+    local adapter = self.adapter
+    local mapId = adapter:GetCurrentMapIdentifier()
+    local mapSizeId, zoneId = getMapSizeId(self, mapId)
+    local worldSizeX, worldSizeY
+
+    worldSizeX = scaleIdToGlobalRatio[mapSizeId]
+    if not worldSizeX then
+        local size = self:GetCurrentWorldSize()
+        worldSizeX, worldSizeY = size:GetSize()
+        worldSizeX, worldSizeY = worldSizeX / DEFAULT_TAMRIEL_SIZE, worldSizeY / DEFAULT_TAMRIEL_SIZE
+
+        local factor = realDistanceFactor[zoneId] or 1
+        worldSizeX, worldSizeY = worldSizeX * factor, worldSizeY * factor
+        scaleIdToGlobalRatio[mapSizeId] = { worldSizeX, worldSizeY }
+    else
+        worldSizeX, worldSizeY = unpack(worldSizeX)
+    end
+    return worldSizeX, worldSizeY
 end
 
 function TamrielOMeter:GetGlobalWorldRatio()
-    return DEFAULT_TAMRIEL_SIZE / self:GetCurrentWorldSize()
+    local worldSizeX, worldSizeY = self:GetWorldGlobalRatio()
+    return 1 / worldSizeX, 1 / worldSizeY
 end

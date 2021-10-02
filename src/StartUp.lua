@@ -3,6 +3,7 @@
 ------------------------------------------------------------------
 
 local LIB_IDENTIFIER = "LibGPS3"
+local VERSION = 4
 
 assert(not _G[LIB_IDENTIFIER], LIB_IDENTIFIER .. " is already loaded")
 
@@ -25,20 +26,13 @@ function lib.internal:InitializeSaveData()
         saveData = {
             version = VERSION,
             apiVersion = GetAPIVersion(),
-            measurements = {},
-            zoneIdWorldSize = {}
+            sizeIdWorldSize = {}
         }
     end
 
-    for id, data in pairs(self.meter.savedMeasurements) do
-        saveData.measurements[id] = data
+    for id, data in pairs(self.mapAdapter.sizeIdWorldSize) do
+        saveData.sizeIdWorldSize[id] = data:Serialize()
     end
-    self.meter.savedMeasurements = saveData.measurements
-
-    for id, data in pairs(self.mapAdapter.zoneIdWorldSize) do
-        saveData.zoneIdWorldSize[id] = data
-    end
-    self.mapAdapter.zoneIdWorldSize = saveData.zoneIdWorldSize
 
     LibGPS_Data = saveData
     self.saveData = saveData
@@ -50,8 +44,6 @@ function lib.internal:Initialize()
 
     logger:Debug("Initializing LibGPS3...")
     local internal = lib.internal
-    local TAMRIEL_MAP_INDEX = internal.TAMRIEL_MAP_INDEX
-    local BLACKREACH_ROOT_MAP_INDEX = internal.BLACKREACH_ROOT_MAP_INDEX
 
     local mapAdapter = class.MapAdapter:New()
     local meter = class.TamrielOMeter:New(mapAdapter)
@@ -61,31 +53,6 @@ function lib.internal:Initialize()
 
     internal.mapAdapter = mapAdapter
     internal.meter = meter
-
-    if(mapAdapter:SetMapToMapListIndexWithoutMeasuring(BLACKREACH_ROOT_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
-        error("LibGPS could not switch to the Blackreach map for initialization")
-    end
-
-    local BLACKREACH_ROOT_MAP_ID = 1782
-    local offsetX, offsetY, scaleX, scaleY = GetUniversallyNormalizedMapInfo(BLACKREACH_ROOT_MAP_ID)
-    offsetY = offsetY + 0.14
-    local measurement = class.Measurement:New()
-    measurement:SetId(mapAdapter:GetCurrentMapIdentifier())
-    measurement:SetMapIndex(BLACKREACH_ROOT_MAP_INDEX)
-    measurement:SetOffset(offsetX, offsetY)
-    measurement:SetScale(scaleX, scaleY)
-    meter:SetMeasurement(measurement, true)
-
-    if(mapAdapter:SetMapToMapListIndexWithoutMeasuring(TAMRIEL_MAP_INDEX) == SET_MAP_RESULT_FAILED) then
-        error("LibGPS could not switch to the Tamriel map for initialization")
-    end
-
-    -- no need to actually measure the world map
-    local measurement = class.Measurement:New()
-    measurement:SetId(mapAdapter:GetCurrentMapIdentifier())
-    measurement:SetMapIndex(TAMRIEL_MAP_INDEX)
-    meter:SetMeasurement(measurement, true)
-
 
     EVENT_MANAGER:RegisterForEvent(LIB_IDENTIFIER, EVENT_ADD_ON_LOADED, function(event, name)
         if(name ~= "LibGPS") then return end
