@@ -119,7 +119,7 @@ function TamrielOMeter:GetCurrentMapMeasurement()
     local measurement = self:GetMeasurement(mapId)
 
     if (not measurement) then
-        -- try to calculate the measurement if it does not yet exist
+        -- try to calculate the measurement if they are not yet available
         self:CalculateMapMeasurement()
     end
 
@@ -146,8 +146,6 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
 
     return measurement
 end
-
-
 
 
 function TamrielOMeter:CalculateMapMeasurement(mapId)
