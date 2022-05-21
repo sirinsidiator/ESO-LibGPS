@@ -103,24 +103,24 @@ function TamrielOMeter:ClearCurrentMapMeasurement()
     end
 end
 
+function TamrielOMeter:GetCurrentMapMeasurement()
+    local mapId = self.adapter:GetCurrentMapIdentifier()
+    local measurement = self:GetMeasurement(mapId)
+
+    if (not measurement) then
+        -- try to calculate the measurement if it does not yet exist
+        self:CalculateMapMeasurement()
+    end
+
+    return self.measurements[mapId]
+end
+
 function TamrielOMeter:GetMapMeasurementByMapID(mapId)
     local measurement = self:GetMeasurement(mapId)
 
     if (not measurement) then 
         -- try to calculate the measurement if it does not yet exist
         self:CalculateMapMeasurement(mapId)
-    end
-
-    return self.measurements[mapId]
-end
-
-function TamrielOMeter:GetCurrentMapMeasurement()
-    local mapId = self.adapter:GetCurrentMapIdentifier()
-    local measurement = self:GetMeasurement(mapId)
-
-    if (not measurement) then
-        -- try to calculate the measurement if they are not yet available
-        self:CalculateMapMeasurement()
     end
 
     return self.measurements[mapId]
