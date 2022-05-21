@@ -150,7 +150,6 @@ end
 
 function TamrielOMeter:CalculateMapMeasurement(providedMapId)
     local adapter = self.adapter
-
     local mapId = providedMapId
 
     -- if no valid mapId was provided, assume current map
