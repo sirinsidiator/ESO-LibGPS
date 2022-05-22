@@ -36,8 +36,8 @@ function lib:GetCurrentMapMeasurement()
 end
 
 --- Returns a Measurement object for specified map ID or nil if the measurement could not be calculated for some reason.
-function lib:GetMapMeasurementByMapID(mapId)
-    return internal.meter:GetMapMeasurementByMapID(mapId)
+function lib:GetMapMeasurementByMapId(mapId)
+    return internal.meter:GetMapMeasurementByMapId(mapId)
 end
 
 --- Returns the mapIndex and zoneIndex of the parent zone for the currently set map.

@@ -115,7 +115,7 @@ function TamrielOMeter:GetCurrentMapMeasurement()
     return self.measurements[mapId]
 end
 
-function TamrielOMeter:GetMapMeasurementByMapID(mapId)
+function TamrielOMeter:GetMapMeasurementByMapId(mapId)
     local measurement = self:GetMeasurement(mapId)
 
     if (not measurement) then 
@@ -148,9 +148,9 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
 end
 
 
-function TamrielOMeter:CalculateMapMeasurement(providedMapId)
+function TamrielOMeter:CalculateMapMeasurement(mapId)
     local adapter = self.adapter
-    local mapId = providedMapId
+    local mapId = mapId
 
     -- if no valid mapId was provided, assume current map
     if (mapId == nil or type(mapId) ~= "number") then
