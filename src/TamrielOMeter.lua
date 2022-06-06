@@ -108,8 +108,19 @@ function TamrielOMeter:GetCurrentMapMeasurement()
     local measurement = self:GetMeasurement(mapId)
 
     if (not measurement) then
-        -- try to calculate the measurement if they are not yet available
+        -- try to calculate the measurement if it does not yet exist
         self:CalculateMapMeasurement()
+    end
+
+    return self.measurements[mapId]
+end
+
+function TamrielOMeter:GetMapMeasurementByMapId(mapId)
+    local measurement = self:GetMeasurement(mapId)
+
+    if (not measurement) then 
+        -- try to calculate the measurement if it does not yet exist
+        self:CalculateMapMeasurement(mapId)
     end
 
     return self.measurements[mapId]
@@ -136,11 +147,20 @@ function TamrielOMeter:TryCalculateRootMapMeasurement(rootMapIndex)
     return measurement
 end
 
-function TamrielOMeter:CalculateMapMeasurement()
-    local adapter = self.adapter
 
-    -- no need to take measurements more than once
-    local mapId = adapter:GetCurrentMapIdentifier()
+function TamrielOMeter:CalculateMapMeasurement(mapId)
+    local adapter = self.adapter
+    local mapId = mapId
+
+    -- if no valid mapId was provided, assume current map
+    if (mapId == nil or type(mapId) ~= "number") then
+
+        -- no need to take measurements more than once
+        mapId = adapter:GetCurrentMapIdentifier()
+
+    end
+
+
     if(mapId == 0 or self:GetMeasurement(mapId)) then return false, SET_MAP_RESULT_CURRENT_MAP_UNCHANGED end
 
     local offsetX, offsetY, scaleX, scaleY = adapter:GetUniversallyNormalizedMapInfo(mapId)
