@@ -253,9 +253,9 @@ local function getCurrentWorldSize(self, notMeasuring)
         logger:Debug("ref-point (normalized real): ", wpX1, "x", wpY1)
         -- correct scale, so that we get the values we want:
         local dx, dy = wx1 - localX, wy1 - localY
-        local correctScale = math.sqrt(dx * dx + dy * dy)
+        local correctScale = dx * dx + dy * dy
         dx, dy = wpX1 - localX, wpY1 - localY
-        correctScale = correctScale / math.sqrt(dx * dx + dy * dy)
+        correctScale = math.sqrt(correctScale / (dx * dx + dy * dy))
         worldSizeX, worldSizeY = math.floor(correctScale * worldSizeX * 0.01 + 0.25) * 100, math.floor(correctScale * worldSizeY * 0.01 + 0.25) * 100
         logger:Debug("worldSize corrected: ", worldSizeX, "x", worldSizeY)
 
