@@ -37,9 +37,13 @@ function TamrielOMeter:Initialize(adapter)
     self:RegisterRootMap(GetMapIndexByZoneId(347)) -- Coldhabour
     self:RegisterRootMap(GetMapIndexByZoneId(980)) -- Clockwork City
     self:RegisterRootMap(GetMapIndexByZoneId(1027)) -- Artaeum
-    if GetNumMaps() >= 45 then
+    local numMaps = GetNumMaps()
+    if numMaps >= 45 then
         self:RegisterRootMap(GetMapIndexByZoneId(1283)) -- Fargrave
         self:RegisterRootMap(GetMapIndexByZoneId(1286)) -- Deathlands
+    end
+    if numMaps >= 50 then
+        self:RegisterRootMap(GetMapIndexByZoneId(1413)) -- Aphocrypha
     end
     -- Any future extra dimensional map here
     self:RegisterRootMap(TAMRIEL_MAP_INDEX) -- Tamriel
@@ -231,12 +235,9 @@ local function getCurrentWorldSize(self, notMeasuring)
         local worldSizeX, worldSizeY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
 
         local wx1, wy1
-        -- Make sure the waypoint is at a different location
-        if mapId == 1747 then -- but not too far for blackreach
-            wx1, wy1 = localX < 0.5 and (localX + 0.02) or (localX - 0.02), localY < 0.5 and (localY + 0.02) or (localY - 0.02)
-        else
-            wx1, wy1 = localX < 0.5 and 0.75 or 0.25, localY < 0.5 and 0.75 or 0.25
-        end
+        -- Make sure the waypoint is at a different location, but not too far for blackreach
+        local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
+        wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 7071.06781 or -7071.06781), pwh, pwy + (localY < 0.5 and 7071.06781 or -7071.06781)) -- 10000 world units
 
         logger:Debug("ref-point (normalized): ", wx1, "x", wy1)
 
@@ -251,8 +252,11 @@ local function getCurrentWorldSize(self, notMeasuring)
         local wpX1, wpY1 = adapter:GetNormalizedPositionFromWorld(zoneId, wwX, wwZ, wwY)
         logger:Debug("ref-point (normalized real): ", wpX1, "x", wpY1)
         -- correct scale, so that we get the values we want:
-        local correctX, correctY = (wx1 - localX) / (wpX1 - localX), (wy1 - localY) / (wpY1 - localY)
-        worldSizeX, worldSizeY = math.floor(correctX * worldSizeX * 0.01 + 0.25) * 100, math.floor(correctY * worldSizeY * 0.01 + 0.25) * 100
+        local dx, dy = wx1 - localX, wy1 - localY
+        local correctScale = math.sqrt(dx * dx + dy * dy)
+        dx, dy = wpX1 - localX, wpY1 - localY
+        correctScale = correctScale / math.sqrt(dx * dx + dy * dy)
+        worldSizeX, worldSizeY = math.floor(correctScale * worldSizeX * 0.01 + 0.25) * 100, math.floor(correctScale * worldSizeY * 0.01 + 0.25) * 100
         logger:Debug("worldSize corrected: ", worldSizeX, "x", worldSizeY)
 
         size:SetSize(worldSizeX, worldSizeY)
