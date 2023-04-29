@@ -37,12 +37,9 @@ function TamrielOMeter:Initialize(adapter)
     self:RegisterRootMap(GetMapIndexByZoneId(347)) -- Coldhabour
     self:RegisterRootMap(GetMapIndexByZoneId(980)) -- Clockwork City
     self:RegisterRootMap(GetMapIndexByZoneId(1027)) -- Artaeum
-    local numMaps = GetNumMaps()
-    if numMaps >= 45 then
-        self:RegisterRootMap(GetMapIndexByZoneId(1283)) -- Fargrave
-        self:RegisterRootMap(GetMapIndexByZoneId(1286)) -- Deathlands
-    end
-    if numMaps >= 50 then
+    self:RegisterRootMap(GetMapIndexByZoneId(1283)) -- Fargrave
+    self:RegisterRootMap(GetMapIndexByZoneId(1286)) -- Deathlands
+    if GetNumMaps() >= 50 then
         self:RegisterRootMap(GetMapIndexByZoneId(1413)) -- Aphocrypha
     end
     -- Any future extra dimensional map here
