@@ -109,20 +109,8 @@ function MapAdapter:GetPlayerPosition()
     return GetMapPlayerPosition("player")
 end
 
-local zoneException = {
-    [1027] = true,
-    [1160] = true,
-    [1161] = true,
-    [1207] = true
-}
-
 function MapAdapter:GetPlayerWorldPosition()
     local zoneId, pwx, pwh, pwy = GetUnitRawWorldPosition("player")
-    -- Don't know why, but the result will be wrong, if GetUnitRawWorldPosition is used in these zones
-    -- In all other zones, checked yet, GetUnitRawWorldPosition is right and GetUnitWorldPosition wrong.
-    if zoneException[zoneId] then
-        return GetUnitWorldPosition("player")
-    end
     return zoneId, pwx, pwh, pwy
 end
 

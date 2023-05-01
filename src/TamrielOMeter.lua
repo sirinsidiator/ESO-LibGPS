@@ -234,7 +234,14 @@ local function getCurrentWorldSize(self, notMeasuring)
         local wx1, wy1
         -- Make sure the waypoint is at a different location, but not too far for blackreach
         local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
-        wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 7071.06781 or -7071.06781), pwh, pwy + (localY < 0.5 and 7071.06781 or -7071.06781)) -- 10000 world units
+        local measurement = self:GetCurrentMapMeasurement()
+        if measurement.scaleX < 0.0025 then
+            -- for small (sub-)zones
+            wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 707.106781 or -707.106781), pwh, pwy + (localY < 0.5 and 707.106781 or -707.106781)) -- 1000 world units
+        else
+            -- for all other zones
+            wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 7071.06781 or -7071.06781), pwh, pwy + (localY < 0.5 and 7071.06781 or -7071.06781)) -- 10000 world units
+        end
 
         logger:Debug("ref-point (normalized): ", wx1, "x", wy1)
 
@@ -242,7 +249,6 @@ local function getCurrentWorldSize(self, notMeasuring)
         size:SetZoneId(zoneId)
         adapter:SetWorldSize(mapSizeId, size, true) -- Assume default scale, do not serialize
 
-        local measurement = self:GetCurrentMapMeasurement()
         local wwX, wwZ, wwY = measurement:ToWorld(wx1, wy1)
         logger:Debug("ref-point (calulated world): ", wwX, "x", wwY)
         -- The assumed scale may wrong. Lets see how wrong:
@@ -309,19 +315,6 @@ function TamrielOMeter:GetWorldGlobalRatio()
         worldSizeX, worldSizeY = size:GetSize()
         worldSizeX, worldSizeY = worldSizeX / DEFAULT_TAMRIEL_SIZE, worldSizeY / DEFAULT_TAMRIEL_SIZE
 
-        if zoneId == 1161 then
-            -- In Blackreach Greymoor the world size is right for SetPlayerWaypointByWorldLocation,
-            -- but wrong for the distance. 7 is just a guess made by movement speed
-            worldSizeX, worldSizeY = worldSizeX * 7, worldSizeY * 7
-        elseif mapId == 1238 then
-            worldSizeX, worldSizeY = worldSizeX * 1.5, worldSizeY * 1.5
-        elseif mapId == 1503 then
-            worldSizeX, worldSizeY = worldSizeX * 6, worldSizeY * 6
-        elseif mapId == 1888 then
-            worldSizeX, worldSizeY = worldSizeX * 4, worldSizeY * 4
-        elseif mapId == 1890 then
-            worldSizeX, worldSizeY = worldSizeX * 8, worldSizeY * 8
-        end
         scaleIdToGlobalRatio[mapSizeId] = { worldSizeX, worldSizeY }
     else
         worldSizeX, worldSizeY = unpack(worldSizeX)
