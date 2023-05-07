@@ -94,7 +94,7 @@ function Measurement:ToWorld(x, y)
     local scaleX, scaleY = lib.internal.meter:GetCurrentWorldSize():GetSize()
     local scaleX, scaleY = scaleX * self.scaleX, scaleY * self.scaleY
     local worldX, worldY = (x - playerX) * scaleX + pwx, (y - playerY) * scaleY + pwy
-    return worldX, pwh, worldY
+    return math.floor(worldX + 0.5), pwh, math.floor(worldY + 0.5)
 end
 
 -- Converts and returns local coordinates for a given global coordinate pair.

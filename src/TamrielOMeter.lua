@@ -232,15 +232,15 @@ local function getCurrentWorldSize(self, notMeasuring)
         local worldSizeX, worldSizeY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
 
         local wx1, wy1
-        -- Make sure the waypoint is at a different location, but not too far for blackreach
+        -- Make sure the ref-point is at a different location, but not too far for blackreach
         local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
         local measurement = self:GetCurrentMapMeasurement()
         if measurement.scaleX < 0.0025 then
             -- for small (sub-)zones
-            wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 2474.8737341529 or -2474.8737341529), pwh, pwy + (localY < 0.5 and 2474.8737341529 or -2474.8737341529)) -- 3500 world units
+            wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 2475 or -2475), pwh, pwy + (localY < 0.5 and 2475 or -2475)) -- 3500 world units
         else
             -- for all other zones
-            wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 7071.06781 or -7071.06781), pwh, pwy + (localY < 0.5 and 7071.06781 or -7071.06781)) -- 10000 world units
+            wx1, wy1 = adapter:GetNormalizedPositionFromWorld(zoneId, pwx + (localX < 0.5 and 7071 or -7071), pwh, pwy + (localY < 0.5 and 7071 or -7071)) -- 10000 world units
         end
 
         logger:Debug("ref-point (normalized): ", wx1, "x", wy1)
