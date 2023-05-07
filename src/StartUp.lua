@@ -3,7 +3,7 @@
 ------------------------------------------------------------------
 
 local LIB_IDENTIFIER = "LibGPS3"
-local VERSION = 4
+local VERSION = 5
 
 assert(not _G[LIB_IDENTIFIER], LIB_IDENTIFIER .. " is already loaded")
 
