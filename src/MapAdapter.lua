@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -181,17 +181,10 @@ function MapAdapter:GetWorldSize(sizeId)
     local size = self.sizeIdWorldSize[sizeId]
     if not size then
         size = lib.internal.class.WorldSize:New()
-        local data = lib.internal.saveData and lib.internal.saveData.sizeIdWorldSize[sizeId]
-        if data then
-            size:Deserialize(data)
-        end
     end
     return size
 end
 
 function MapAdapter:SetWorldSize(sizeId, size, notSaving)
     self.sizeIdWorldSize[sizeId] = size
-    if not notSaving and lib.internal.saveData then
-        lib.internal.saveData.sizeIdWorldSize[sizeId] = size:Serialize()
-    end
 end

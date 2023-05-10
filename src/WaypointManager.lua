@@ -51,8 +51,8 @@ function WaypointManager:SetPlayerWaypoint(x, y)
     local id = self.adapter:GetCurrentMapIdentifier()
     local measurement = self.meter:GetMeasurement(id)
     if (measurement) then
-        local _, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
-        local playerX, playerY = self.adapter:GetPlayerPosition()
+        local zoneId, pwx, pwh, pwy = self.adapter:GetPlayerWorldPosition()
+        local playerX, playerY = self.adapter:GetNormalizedPositionFromWorld(zoneId, pwx, pwh, pwy)
         local scaleX, scaleY = self.meter:GetCurrentWorldSize():GetSize()
         scaleX, scaleY = scaleX * measurement.scaleX, scaleY * measurement.scaleY
         local worldX, worldY = (x - playerX) * scaleX + pwx, (y - playerY) * scaleY + pwy

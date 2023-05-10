@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -19,23 +19,18 @@ lib.internal = {
 }
 
 function lib.internal:InitializeSaveData()
-    local saveData = LibGPS_Data
+    -- local saveData = LibGPS_Data
 
-    if(not saveData or saveData.version ~= VERSION or saveData.apiVersion ~= GetAPIVersion()) then
-        self.logger:Info("Creating new saveData")
-        saveData = {
-            version = VERSION,
-            apiVersion = GetAPIVersion(),
-            sizeIdWorldSize = {}
-        }
-    end
+    -- if(not saveData or saveData.version ~= VERSION or saveData.apiVersion ~= GetAPIVersion()) then
+    --     self.logger:Info("Creating new saveData")
+    --     saveData = {
+    --         version = VERSION,
+    --         apiVersion = GetAPIVersion()
+    --     }
+    -- end
 
-    for id, data in pairs(self.mapAdapter.sizeIdWorldSize) do
-        saveData.sizeIdWorldSize[id] = data:Serialize()
-    end
-
-    LibGPS_Data = saveData
-    self.saveData = saveData
+    -- LibGPS_Data = saveData
+    -- self.saveData = saveData
 end
 
 function lib.internal:Initialize()

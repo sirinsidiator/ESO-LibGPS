@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -204,7 +204,7 @@ end
 
 local function getMapSizeId(self, mapId)
     local zoneId = self.adapter:GetPlayerZoneId()
-    return mapId + zoneId * 100000, zoneId
+    return string.format("%i:%i:%s:%s", mapId, zoneId, GetPlayerLocationName(), GetPlayerActiveSubzoneName()), zoneId
 end
 local function getCurrentWorldSize(self, notMeasuring)
     local adapter = self.adapter
@@ -220,20 +220,21 @@ local function getCurrentWorldSize(self, notMeasuring)
         -- This can happend, e.g. by porting
         -- no need to take measurements more than once
 
+        -- There are maps, where GetPlayerPosition is "frozen", while GetPlayerRawWorldPosition is still working
+        local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
         -- get the player position on the current map
-        local localX, localY = adapter:GetPlayerPosition()
+        local localX, localY = adapter:GetNormalizedPositionFromWorld(zoneId, pwx, pwh, pwy)
         if (localX == 0 and localY == 0) then
             -- cannot take measurements while player position is not initialized
             return adapter:GetWorldSize(0)
         end
 
-        logger:Debug("Calculate current world size of ", mapId, " for zone ", zoneId)
+        logger:Debug("Calculate current world size of", mapId, "for zone", zoneId, ", Id", mapSizeId)
 
         local worldSizeX, worldSizeY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
 
         local wx1, wy1
         -- Make sure the ref-point is at a different location, but not too far for blackreach
-        local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
         local measurement = self:GetCurrentMapMeasurement()
         if measurement.scaleX < 0.0025 then
             -- for small (sub-)zones
