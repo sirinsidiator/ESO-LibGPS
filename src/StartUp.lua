@@ -42,9 +42,6 @@ function lib.internal:Initialize()
 
     local mapAdapter = class.MapAdapter:New()
     local meter = class.TamrielOMeter:New(mapAdapter)
-    local waypointManager = class.WaypointManager:New(mapAdapter, meter)
-    mapAdapter:SetWaypointManager(waypointManager)
-    meter:SetWaypointManager(waypointManager)
 
     internal.mapAdapter = mapAdapter
     internal.meter = meter

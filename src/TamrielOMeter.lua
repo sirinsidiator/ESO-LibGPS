@@ -51,10 +51,6 @@ function TamrielOMeter:Reset()
     ZO_ClearTable(self.measurements)
 end
 
-function TamrielOMeter:SetWaypointManager(waypointManager)
-    self.waypointManager = waypointManager
-end
-
 function TamrielOMeter:RegisterRootMap(mapIndex)
     logger:Debug("Register root map", self.adapter:GetFormattedMapName(mapIndex))
     self.rootMaps[mapIndex] = false
@@ -85,12 +81,6 @@ end
 
 function TamrielOMeter:IsMeasuring()
     return self.measuring
-end
-
-function TamrielOMeter:GetReferencePoints()
-    local x1, y1 = self.adapter:GetPlayerPosition()
-    local x2, y2 = self.waypointManager:GetPlayerWaypoint()
-    return x1, y1, x2, y2
 end
 
 function TamrielOMeter:ClearCurrentMapMeasurement()
@@ -273,8 +263,8 @@ function TamrielOMeter:GetCurrentWorldSize()
     local adapter = self.adapter
     local size
 
+    local mapId = adapter:GetCurrentMapIdentifier()
     if adapter:IsCurrentMapPlayerLocation() then
-        local mapId = adapter:GetCurrentMapIdentifier()
         local mapSizeId = getMapSizeId(self, mapId)
         size = adapter:GetWorldSize(mapSizeId)
         if size:IsValid() then
@@ -282,9 +272,8 @@ function TamrielOMeter:GetCurrentWorldSize()
         end
     end
 
-    self:PushCurrentMap()
     size = getCurrentWorldSize(self)
-    self:PopCurrentMap()
+    SetMapToMapId(mapId)
     return size
 end
 

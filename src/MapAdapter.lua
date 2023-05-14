@@ -36,10 +36,6 @@ function MapAdapter:Initialize()
     calibrateX, calibrateY = GetUniversallyNormalizedMapInfo(TAMRIEL_MAP_ID)
 end
 
-function MapAdapter:SetWaypointManager(waypointManager)
-    self.waypointManager = waypointManager
-end
-
 function MapAdapter:HookSetMapToFunction(funcName, returnToInitialMap, skipSecondCall)
     local orgFunction = _G[funcName]
     self.original[funcName] = orgFunction
