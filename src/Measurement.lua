@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -89,8 +89,8 @@ end
 
 function Measurement:ToWorld(x, y)
     local adapter = lib.internal.mapAdapter
-    local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
-    local playerX, playerY = adapter:GetPlayerPosition()
+    local zoneId, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
+    local playerX, playerY = adapter:GetNormalizedPositionFromWorld(zoneId, pwx, pwh, pwy)
     local scaleX, scaleY = lib.internal.meter:GetCurrentWorldSize():GetSize()
     local scaleX, scaleY = scaleX * self.scaleX, scaleY * self.scaleY
     local worldX, worldY = (x - playerX) * scaleX + pwx, (y - playerY) * scaleY + pwy

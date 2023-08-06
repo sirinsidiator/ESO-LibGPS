@@ -1,4 +1,4 @@
--- LibGPS3 & its files Â© sirinsidiator                          --
+-- LibGPS3 & its files © sirinsidiator                          --
 -- Distributed under The Artistic License 2.0 (see LICENSE)     --
 ------------------------------------------------------------------
 
@@ -51,10 +51,6 @@ function TamrielOMeter:Reset()
     ZO_ClearTable(self.measurements)
 end
 
-function TamrielOMeter:SetWaypointManager(waypointManager)
-    self.waypointManager = waypointManager
-end
-
 function TamrielOMeter:RegisterRootMap(mapIndex)
     logger:Debug("Register root map", self.adapter:GetFormattedMapName(mapIndex))
     self.rootMaps[mapIndex] = false
@@ -85,12 +81,6 @@ end
 
 function TamrielOMeter:IsMeasuring()
     return self.measuring
-end
-
-function TamrielOMeter:GetReferencePoints()
-    local x1, y1 = self.adapter:GetPlayerPosition()
-    local x2, y2 = self.waypointManager:GetPlayerWaypoint()
-    return x1, y1, x2, y2
 end
 
 function TamrielOMeter:ClearCurrentMapMeasurement()
@@ -204,7 +194,7 @@ end
 
 local function getMapSizeId(self, mapId)
     local zoneId = self.adapter:GetPlayerZoneId()
-    return mapId + zoneId * 100000, zoneId
+    return string.format("%i:%i:%s:%s", mapId, zoneId, GetPlayerLocationName(), GetPlayerActiveSubzoneName()), zoneId
 end
 local function getCurrentWorldSize(self, notMeasuring)
     local adapter = self.adapter
@@ -220,20 +210,21 @@ local function getCurrentWorldSize(self, notMeasuring)
         -- This can happend, e.g. by porting
         -- no need to take measurements more than once
 
+        -- There are maps, where GetPlayerPosition is "frozen", while GetPlayerRawWorldPosition is still working
+        local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
         -- get the player position on the current map
-        local localX, localY = adapter:GetPlayerPosition()
+        local localX, localY = adapter:GetNormalizedPositionFromWorld(zoneId, pwx, pwh, pwy)
         if (localX == 0 and localY == 0) then
             -- cannot take measurements while player position is not initialized
             return adapter:GetWorldSize(0)
         end
 
-        logger:Debug("Calculate current world size of ", mapId, " for zone ", zoneId)
+        logger:Debug("Calculate current world size of", mapId, "for zone", zoneId, ", Id", mapSizeId)
 
         local worldSizeX, worldSizeY = DEFAULT_TAMRIEL_SIZE, DEFAULT_TAMRIEL_SIZE
 
         local wx1, wy1
         -- Make sure the ref-point is at a different location, but not too far for blackreach
-        local _, pwx, pwh, pwy = adapter:GetPlayerWorldPosition()
         local measurement = self:GetCurrentMapMeasurement()
         if measurement.scaleX < 0.0025 then
             -- for small (sub-)zones
@@ -272,8 +263,8 @@ function TamrielOMeter:GetCurrentWorldSize()
     local adapter = self.adapter
     local size
 
+    local mapId = adapter:GetCurrentMapIdentifier()
     if adapter:IsCurrentMapPlayerLocation() then
-        local mapId = adapter:GetCurrentMapIdentifier()
         local mapSizeId = getMapSizeId(self, mapId)
         size = adapter:GetWorldSize(mapSizeId)
         if size:IsValid() then
@@ -281,9 +272,8 @@ function TamrielOMeter:GetCurrentWorldSize()
         end
     end
 
-    self:PushCurrentMap()
     size = getCurrentWorldSize(self)
-    self:PopCurrentMap()
+    SetMapToMapId(mapId)
     return size
 end
 

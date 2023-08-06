@@ -20,6 +20,5 @@ WorldSize.lua
 MapStack.lua
 MapAdapter.lua
 TamrielOMeter.lua
-WaypointManager.lua
 api.lua
 compatibility.lua
