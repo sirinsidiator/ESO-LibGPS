@@ -230,11 +230,11 @@ local function getCurrentWorldSize(self, notMeasuring)
         local range
         if measurement.scaleX < 0.002 then
             -- for small (sub-)zones
-            range = 2475 -- 3500 world units
+            range = 707 -- 1000 world units
             logger:Debug("3500 units")
         elseif measurement.scaleX < 0.02 then
             -- for mid-sized (sub-)zones
-            range = 707 -- 1000 world units
+            range = 2475 -- 3500 world units
             logger:Debug("1000 units")
         else
             -- for all other zones
